@@ -25,7 +25,7 @@ interface ProcessamentoRes {
 }
 
 export default function ConciliacaoPage() {
-  const API_URL = 'http://192.168.31.75:3001';
+  const API_URL = 'http://uaisotrem.ddns.net:3001';
   // --- ESTADOS ---
   const [isLoading, setIsLoading] = useState(false);
   const [loaderTitle, setLoaderTitle] = useState("Processando");
