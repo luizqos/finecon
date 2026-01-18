@@ -46,6 +46,7 @@ export default function ConciliacaoPage() {
   const [filterE2E, setFilterE2E] = useState("");
   const [filterTipo, setFilterTipo] = useState("");
   const [filterOri, setFilterOri] = useState("");
+  const [showJiraModal, setShowJiraModal] = useState(false);
 
   const formRef = useRef<HTMLFormElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -275,6 +276,52 @@ export default function ConciliacaoPage() {
     });
   }, [res, filterE2E, filterTipo, filterOri]);
 
+    const jiraData = useMemo(() => {
+    if (!res || !metrics) return null;
+
+    const dataSel = dataRef.split('-').reverse().join('/');
+
+    // Agrupamento de E2Es (Baseado no scripts.js original)
+    const grupos = [
+      { titulo: "E2E faltante na JD Crédito", lista: res.pendencias.filter(p => p.falta === 'JD' && p.tipo === 'C') },
+      { titulo: "E2E faltante na JD Débito", lista: res.pendencias.filter(p => p.falta === 'JD' && p.tipo === 'D') },
+      { titulo: "E2E faltante no Core Crédito", lista: res.pendencias.filter(p => p.falta === 'CORE' && p.tipo === 'C') },
+      { titulo: "E2E faltante no Core Débito", lista: res.pendencias.filter(p => p.falta === 'CORE' && p.tipo === 'D') }
+    ];
+
+    // Texto para o Clipboard (Jira Wiki Markup)
+    let textoClipboard = `*Conciliação referente ao dia ${dataSel}*\n\n`;
+
+    const addAlerta = (diffQ: number, diffV: number, tipo: string) => {
+      if (Math.abs(diffQ) > 0 || Math.abs(diffV) > 0.01) {
+        const local = diffQ > 0 ? 'Core' : 'JD';
+        textoClipboard += `* Falta ${Math.abs(diffQ)} transação de ${tipo} no ${local}.\n`;
+        textoClipboard += `  Diferença no Valor da conta ${tipo} é de R$ ${fmtCur(Math.abs(diffV))}.\n`;
+      }
+    };
+
+    addAlerta(metrics.diff.qc, metrics.diff.vc, "Crédito");
+    addAlerta(metrics.diff.qd, metrics.diff.vd, "Débito");
+
+    textoClipboard += `\n*CORE*\nC: ${fmtNum(metrics.core.qc)} | R$ ${fmtCur(metrics.core.vc)}\nD: ${fmtNum(metrics.core.qd)} | R$ ${fmtCur(metrics.core.vd)}\n`;
+    textoClipboard += `\n*JD*\nC: ${fmtNum(metrics.jd.qc)} | R$ ${fmtCur(metrics.jd.vc)}\nD: ${fmtNum(metrics.jd.qd)} | R$ ${fmtCur(metrics.jd.vd)}\n`;
+
+    grupos.forEach(g => {
+      if (g.lista.length > 0) {
+        textoClipboard += `\n*${g.titulo} (${g.lista.length})*\n${g.lista.map(p => p.e2e).join('\n')}\n`;
+      }
+    });
+
+    return { dataSel, grupos, textoClipboard };
+  }, [res, metrics, dataRef]);
+
+  const copiarParaJira = () => {
+    if (jiraData) {
+      navigator.clipboard.writeText(jiraData.textoClipboard);
+      alert("Texto copiado para o JIRA!");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gray-50 py-10 px-4 md:px-8 text-gray-800">
       {/* LOADER PERSISTENTE PARA POLLING */}
@@ -318,9 +365,8 @@ export default function ConciliacaoPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
             <div
-              className={`${
-                isSwapped ? "lg:order-2" : "lg:order-1"
-              } bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-600`}
+              className={`${isSwapped ? "lg:order-2" : "lg:order-1"
+                } bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-600`}
             >
               <h6 className="font-black text-blue-600 mb-4 text-xs uppercase">
                 Arquivo JD (CSV)
@@ -342,9 +388,8 @@ export default function ConciliacaoPage() {
             </div>
 
             <div
-              className={`${
-                isSwapped ? "lg:order-1" : "lg:order-2"
-              } bg-white p-6 rounded-xl shadow-sm border-l-4 border-gray-900`}
+              className={`${isSwapped ? "lg:order-1" : "lg:order-2"
+                } bg-white p-6 rounded-xl shadow-sm border-l-4 border-gray-900`}
             >
               <h6 className="font-black text-gray-900 mb-4 text-xs uppercase">
                 Arquivo Core (CSV)
@@ -381,99 +426,186 @@ export default function ConciliacaoPage() {
           </div>
         </form>
 
+        {/* RESULTADOS - DESIGN SEMELHANTE À IMAGEM */}
         {res && metrics && (
-          <div className="mt-12 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Tabela de Resultados (JD vs Core) */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <h4 className="font-black text-xl mb-6">Métricas de Diferença</h4>
-              <table className="w-full text-center text-sm">
-                <thead className="bg-gray-900 text-white font-black text-xs uppercase">
-                  <tr>
-                    <th className="p-3">Métrica</th>
-                    <th>JD</th>
-                    <th>Core</th>
-                    <th>Diferença</th>
-                  </tr>
-                </thead>
-                <tbody className="font-bold">
-                  <tr className="border-b">
-                    <td>Crédito (Val)</td>
-                    <td>{fmtCur(metrics.jd.vc)}</td>
-                    <td>{fmtCur(metrics.core.vc)}</td>
-                    <td
-                      className={
-                        metrics.diff.vc !== 0
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }
-                    >
-                      R$ {fmtCur(metrics.diff.vc)}
-                    </td>
-                  </tr>
-                  <tr className="border-b">
-                    <td>Débito (Val)</td>
-                    <td>{fmtCur(metrics.jd.vd)}</td>
-                    <td>{fmtCur(metrics.core.vd)}</td>
-                    <td
-                      className={
-                        metrics.diff.vd !== 0
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }
-                    >
-                      R$ {fmtCur(metrics.diff.vd)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="mt-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              {/* HEADER DA SEÇÃO */}
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Resultado ({dataRef.split("-").reverse().join("/")})
+                </h2>
+                <button onClick={() => setShowJiraModal(true)} className="bg-[#212529] text-white px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 hover:bg-black transition-colors">
+                  <span className="text-[10px]">🎫</span> JIRA
+                </button>
+              </div>
 
-            {/* Lista de Auditoria / Pendências */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* TABELA DE MÉTRICAS (RESUMO) */}
+              <div className="overflow-hidden border border-gray-200 rounded mb-8">
+                <table className="w-full text-center border-collapse">
+                  <thead>
+                    <tr className="bg-[#212529] text-white text-xs uppercase">
+                      <th className="p-3 font-bold border-r border-gray-700">
+                        Métrica
+                      </th>
+                      <th className="p-3 font-bold border-r border-gray-700">
+                        JD
+                      </th>
+                      <th className="p-3 font-bold border-r border-gray-700">
+                        Core
+                      </th>
+                      <th className="p-3 font-bold border-r border-gray-700">
+                        Diferença
+                      </th>
+                      <th className="p-3 font-bold italic text-gray-400">
+                        Ref. Planilha JD
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    <tr className="border-b border-gray-200">
+                      <td className="p-3 text-left font-bold bg-gray-50 border-r">
+                        Crédito (Qtd)
+                      </td>
+                      <td className="p-3 border-r">{fmtNum(metrics.jd.qc)}</td>
+                      <td className="p-3 border-r">
+                        {fmtNum(metrics.core.qc)}
+                      </td>
+                      <td
+                        className={`p-3 border-r font-bold ${metrics.diff.qc !== 0 ? "bg-red-100 text-red-600" : ""
+                          }`}
+                      >
+                        {fmtNum(metrics.diff.qc)}
+                      </td>
+                      <td className="p-3 text-gray-500 italic">
+                        {fmtNum(res.jd_sheet.C.qtd)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-200">
+                      <td className="p-3 text-left font-bold bg-gray-50 border-r">
+                        Crédito (Val)
+                      </td>
+                      <td className="p-3 border-r">{fmtCur(metrics.jd.vc)}</td>
+                      <td className="p-3 border-r">
+                        {fmtCur(metrics.core.vc)}
+                      </td>
+                      <td
+                        className={`p-3 border-r font-bold ${Math.abs(metrics.diff.vc) > 0.01
+                          ? "bg-[#f8d7da] text-[#842029]"
+                          : ""
+                          }`}
+                      >
+                        {fmtCur(metrics.diff.vc)}
+                      </td>
+                      <td className="p-3 text-gray-500 italic">
+                        {fmtCur(res.jd_sheet.C.val)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-200">
+                      <td className="p-3 text-left font-bold bg-gray-50 border-r">
+                        Débito (Qtd)
+                      </td>
+                      <td className="p-3 border-r">{fmtNum(metrics.jd.qd)}</td>
+                      <td className="p-3 border-r">
+                        {fmtNum(metrics.core.qd)}
+                      </td>
+                      <td
+                        className={`p-3 border-r font-bold ${metrics.diff.qd !== 0 ? "bg-red-100 text-red-600" : ""
+                          }`}
+                      >
+                        {fmtNum(metrics.diff.qd)}
+                      </td>
+                      <td className="p-3 text-gray-500 italic">
+                        {fmtNum(res.jd_sheet.D.qtd)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 text-left font-bold bg-gray-50 border-r">
+                        Débito (Val)
+                      </td>
+                      <td className="p-3 border-r">{fmtCur(metrics.jd.vd)}</td>
+                      <td className="p-3 border-r">
+                        {fmtCur(metrics.core.vd)}
+                      </td>
+                      <td
+                        className={`p-3 border-r font-bold ${Math.abs(metrics.diff.vd) > 0.01
+                          ? "bg-[#f8d7da] text-[#842029]"
+                          : ""
+                          }`}
+                      >
+                        {fmtCur(metrics.diff.vd)}
+                      </td>
+                      <td className="p-3 text-gray-500 italic">
+                        {fmtCur(res.jd_sheet.D.val)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* FILTROS */}
+              <div className="flex gap-4 mb-6">
                 <input
                   placeholder="Filtrar ID..."
-                  className="border rounded-lg p-2 text-sm"
+                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                   onChange={(e) => setFilterE2E(e.target.value)}
                 />
                 <select
-                  className="border rounded-lg p-2 text-sm"
+                  className="w-48 border border-gray-300 rounded px-3 py-2 text-sm bg-white"
                   onChange={(e) => setFilterTipo(e.target.value)}
                 >
-                  <option value="">Tipos (Todos)</option>
+                  <option value="">Tipos</option>
                   <option value="C">Crédito</option>
                   <option value="D">Débito</option>
                 </select>
                 <select
-                  className="border rounded-lg p-2 text-sm"
+                  className="w-64 border border-gray-300 rounded px-3 py-2 text-sm bg-white"
                   onChange={(e) => setFilterOri(e.target.value)}
                 >
-                  <option value="">Pendências (Todas)</option>
+                  <option value="">Pendências</option>
                   <option value="CORE">Falta no Core</option>
                   <option value="JD">Falta na JD</option>
                 </select>
               </div>
-              <div className="max-h-96 overflow-y-auto rounded-xl border">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b font-black">
-                    <tr>
-                      <th className="p-3 text-left">E2E ID</th>
-                      <th>Tipo</th>
-                      <th>Valor</th>
-                      <th>Status</th>
+
+              {/* TABELA DE PENDÊNCIAS (LISTAGEM) */}
+              <div className="overflow-hidden border border-gray-200 rounded">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#212529] text-white text-xs uppercase">
+                      <th className="p-3 text-left font-bold">E2E ID</th>
+                      <th className="p-3 text-center font-bold">Tipo</th>
+                      <th className="p-3 text-center font-bold">Valor</th>
+                      <th className="p-3 text-center font-bold">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAudit.map((p, i) => (
-                      <tr key={i} className="border-b hover:bg-blue-50/30">
-                        <td className="p-3 font-mono">{p.e2e}</td>
-                        <td className="text-center">
-                          {p.tipo === "C" ? "CRED" : "DEB"}
+                      <tr
+                        key={i}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="p-3 font-bold text-[#d63384] break-all">
+                          {p.e2e}
                         </td>
-                        <td className="text-center font-bold">
+                        <td className="p-3 text-center">
+                          <span className="bg-[#0dcaf0] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                            {p.tipo === "C" ? "CRÉDITO" : "DÉBITO"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-bold">
                           R$ {fmtCur(p.valor)}
                         </td>
-                        <td className="text-center font-black">{p.falta}</td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`text-black text-[10px] font-bold px-2 py-0.5 rounded uppercase ${p.falta === "JD"
+                              ? "bg-[#ffc107]"
+                              : "bg-red-500 text-white"
+                              }`}
+                          >
+                            FALTA NA {p.falta}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -483,6 +615,92 @@ export default function ConciliacaoPage() {
           </div>
         )}
       </div>
+      {/* MODAL RESUMO JIRA (Design image_363e5c.png) */}
+      {showJiraModal && jiraData && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+
+            {/* Header */}
+            <div className="bg-[#212529] text-white p-4 flex justify-between items-center">
+              <h3 className="font-bold flex items-center gap-2">🎫 Resumo JIRA</h3>
+              <button onClick={() => setShowJiraModal(false)} className="hover:text-gray-400 text-2xl">&times;</button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              <h5 className="text-[#0d6efd] font-bold text-lg border-b pb-2">
+                Conciliação referente ao dia {jiraData.dataSel}
+              </h5>
+
+              {/* Alertas Vermelhos */}
+              <div className="text-red-600 font-bold text-sm space-y-1">
+                {Math.abs(metrics!.diff.vc) > 0.01 && (
+                  <p>• Falta {Math.abs(metrics!.diff.qc)} transação de Crédito no {metrics!.diff.qc > 0 ? 'Core' : 'JD'}.<br />
+                    <span className="ml-3">Diferença no Valor da conta Crédito é de R$ {fmtCur(Math.abs(metrics!.diff.vc))}.</span>
+                  </p>
+                )}
+                {Math.abs(metrics!.diff.vd) > 0.01 && (
+                  <p>• Falta {Math.abs(metrics!.diff.qd)} transação de Débito no {metrics!.diff.qd > 0 ? 'Core' : 'JD'}.<br />
+                    <span className="ml-3">Diferença no Valor da conta Débito é de R$ {fmtCur(Math.abs(metrics!.diff.vd))}.</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Tabelas CORE / JD */}
+              {['CORE', 'JD'].map((label) => (
+                <div key={label}>
+                  <strong className="text-sm block mb-1 uppercase tracking-wider">{label}</strong>
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700">
+                        <th className="border p-1.5 text-left">Tipo</th>
+                        <th className="border p-1.5 text-center">Qtd</th>
+                        <th className="border p-1.5 text-right">Valor (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border p-1.5">C</td>
+                        <td className="border p-1.5 text-center">{fmtNum(label === 'CORE' ? metrics!.core.qc : metrics!.jd.qc)}</td>
+                        <td className="border p-1.5 text-right">{fmtCur(label === 'CORE' ? metrics!.core.vc : metrics!.jd.vc)}</td>
+                      </tr>
+                      <tr>
+                        <td className="border p-1.5">D</td>
+                        <td className="border p-1.5 text-center">{fmtNum(label === 'CORE' ? metrics!.core.qd : metrics!.jd.qd)}</td>
+                        <td className="border p-1.5 text-right">{fmtCur(label === 'CORE' ? metrics!.core.vd : metrics!.jd.vd)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+
+              {/* Listas de E2Es Faltantes */}
+              {jiraData.grupos.map((g, idx) => g.lista.length > 0 && (
+                <div key={idx} className="space-y-1">
+                  <strong className="text-xs uppercase">{g.titulo} ({g.lista.length})</strong>
+                  <div className="bg-gray-50 border rounded p-2 max-h-24 overflow-y-auto">
+                    {g.lista.map(p => (
+                      <div key={p.e2e} className="text-[10px] font-mono text-[#d63384] font-bold">{p.e2e}</div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <p className="text-gray-500 text-xs italic pt-4">Aperte no botão abaixo para copiar o texto pronto para o JIRA.</p>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t flex justify-end">
+              <button
+                onClick={copiarParaJira}
+                className="bg-[#0d6efd] text-white px-6 py-2 rounded font-bold hover:bg-blue-700 transition-colors shadow-lg"
+              >
+                Copiar para o JIRA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
