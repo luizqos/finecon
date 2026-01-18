@@ -14,5 +14,6 @@ const server = app.listen(PORT, () => {
   console.log(`Servidor Finecon rodando na porta ${PORT}`);
 });
 
-server.timeout = 900000; // 15 minutos em milissegundos
-server.keepAliveTimeout = 65000; // Evita fechamento prematuro de conexões ociosas
+server.timeout = 600000; 
+server.headersTimeout = 610000;
+server.keepAliveTimeout = 605000;
