@@ -128,6 +128,7 @@ export default function ConciliacaoPage() {
         }
       } catch (err) {
         setTimeout(() => dispararRetentativas(tentativasRestantes - 1), 2000);
+        console.error(err);
       }
     };
 
@@ -190,6 +191,7 @@ export default function ConciliacaoPage() {
       }
     } catch (err) {
       alert("Erro ao processar ficheiros.");
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -227,19 +229,6 @@ export default function ConciliacaoPage() {
       alert(err.message || "Erro ao iniciar geração.");
       setIsLoading(false);
     }
-  };
-
-  const handleToggleSwap = () => {
-    // 1. Inicia o fade out dos títulos
-    setTitlesVisible(false);
-
-    // 2. Inverte a posição dos cards
-    setIsSwapped(!isSwapped);
-
-    // 3. Após metade da animação de slide (350ms), inicia o fade in
-    setTimeout(() => {
-      setTitlesVisible(true);
-    }, 350);
   };
 
   // --- CÁLCULOS E FILTROS ---
@@ -873,20 +862,5 @@ export default function ConciliacaoPage() {
         </div>
       )}
     </main>
-  );
-}
-
-function InputMini({ label, name }: { label: string; name: string }) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[9px] font-black text-gray-400 uppercase">
-        {label}
-      </label>
-      <input
-        name={name}
-        className="w-full border-gray-100 rounded p-1 text-xs font-bold focus:ring-1 focus:ring-blue-500"
-        placeholder="0"
-      />
-    </div>
   );
 }
