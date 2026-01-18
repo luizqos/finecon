@@ -1,8 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeftRight, Rocket, FileSpreadsheet, ClipboardCheck, Info } from 'lucide-react';
+import { ArrowLeftRight, Rocket, FileSpreadsheet, ClipboardCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+import { ENV } from '@/config/env';
+
+const API_URL = ENV.NEXT_PUBLIC_API_URL;
 
 // --- Interfaces para Tipagem ---
 interface Pendencia {
@@ -25,7 +30,7 @@ interface ProcessamentoRes {
 }
 
 export default function ConciliacaoPage() {
-  const API_URL = 'http://uaisotrem.ddns.net:3001';
+  
   // --- ESTADOS ---
   const [isLoading, setIsLoading] = useState(false);
   const [loaderTitle, setLoaderTitle] = useState("Processando");

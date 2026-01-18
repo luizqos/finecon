@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "preflight": "tsx src/scripts/preflight.ts",
+    "predev": "npm run preflight",
+    "prebuild": "npm run preflight",
     "lint": "eslint"
   },
   "dependencies": {
