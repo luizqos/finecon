@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import csv from 'csv-parser';
 import fs from 'fs';
 import { limparTexto, formatarValor } from '../utils/formatters';
+import path from 'path';
 
 export const excelProgress: Record<string, { porcentagem: number; linhas: number; etapa: string }> = {};
 
@@ -27,100 +28,162 @@ function atualizarStatus(taskId: string, porcentagem: number, linhas: number, et
   }
 }
 
-export const gerarExcel = async (req: Request, res: Response) => {
-  const taskId = req.body.taskId || 'default';
-  excelProgress[taskId] = { porcentagem: 0, linhas: 0, etapa: 'Iniciando leitura...' };
+export const baixarArquivo = async (req: Request, res: Response) => {
+  const taskId = req.params.taskId as string;
+  const status = excelProgress[taskId];
 
-  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-  const jd_c: string[] = []; const jd_d: string[] = [];
-  const core_c: string[] = []; const core_d: string[] = [];
-
-  try {
-    // --- 1.1 LEITURA JD (VIA STREAM DE DISCO) ---
-    atualizarStatus(taskId, 0, i, `Construindo aba ${titulo}`);
-    await new Promise((resolve, reject) => {
-      let isHeader = true;
-      fs.createReadStream(files.file_jd[0].path)
-        .pipe(csv({ separator: ';', headers: false }))
-        .on('data', (row) => {
-          if (isHeader) { isHeader = false; return; }
-          if (Object.keys(row).length >= 19 && limparTexto(row[18]) === 'EFETIVADO') {
-            const tipo = limparTexto(row[5]).includes('CREDITO') ? 'C' : 'D';
-            const e2e = limparTexto(row[2]);
-            if (tipo === 'C') jd_c.push(e2e); else jd_d.push(e2e);
-          }
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
-
-    // --- 1.2 LEITURA CORE (DETECÇÃO DINÂMICA) ---
-    const contentSample = fs.readFileSync(files.file_core[0].path, 'utf8').slice(0, 1000);
-    const sep = contentSample.includes(';') ? ';' : ',';
-
-    await new Promise((resolve, reject) => {
-      let isHeader = true;
-      fs.createReadStream(files.file_core[0].path)
-        .pipe(csv({ separator: sep, headers: false }))
-        .on('data', (row) => {
-          if (isHeader) { isHeader = false; return; }
-          if (Object.keys(row).length >= 2) {
-            const tipo = limparTexto(row[0]);
-            const e2e = limparTexto(row[1]);
-            if (tipo === 'C') core_c.push(e2e); else if (tipo === 'D') core_d.push(e2e);
-          }
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
-
-    // --- 2. MONTAGEM DO EXCEL EM LOTES ---
-    const workbook = new ExcelJS.Workbook();
-    
-    const montarAba = async (titulo: string, listaCore: string[], listaJD: string[], baseProgresso: number) => {
-      const sheet = workbook.addWorksheet(titulo);
-      sheet.getRow(1).values = ['E2E CORE', 'E2E JD', 'VALIDACAO', 'PROCV'];
-      
-      const maxRows = Math.max(listaCore.length, listaJD.length);
-      const indices = Array.from({ length: maxRows }, (_, i) => i);
-
-      await executarEmLotes(indices, 500, (i) => {
-        const rowNum = i + 2;
-        sheet.addRow([
-          listaCore[i] || '',
-          listaJD[i] || '',
-          { formula: `=IF(OR(LEN(A${rowNum})>10,LEN(B${rowNum})>10),"SIM","-")` },
-          { formula: `=IF(C${rowNum}="SIM",IF(ISERROR(VLOOKUP(B${rowNum},A:A,1,FALSE)),"NÃO ENCONTRADO","OK"),"-")` }
-        ]);
-        
-        const perc = baseProgresso + Math.round((i / maxRows) * 15);
-        atualizarStatus(taskId, perc, i, `Construindo aba ${titulo}`);
-      });
-      sheet.getColumn(1).width = 35; sheet.getColumn(2).width = 35;
-    };
-
-    await montarAba("Credito", core_c, jd_c, 70);
-    await montarAba("Debito", core_d, jd_d, 85);
-
-    // --- 3. ENVIO E LIMPEZA ---
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="Auditoria.xlsx"');
-
-    await workbook.xlsx.write(res);
-    
-    // Deleta arquivos temporários
-    fs.unlinkSync(files.file_jd[0].path);
-    fs.unlinkSync(files.file_core[0].path);
-    
-    delete excelProgress[taskId];
-    res.end();
-
-  } catch (error: any) {
-    console.error("Erro Excel:", error);
-    if (files.file_jd) fs.unlinkSync(files.file_jd[0].path);
-    if (files.file_core) fs.unlinkSync(files.file_core[0].path);
-    res.status(500).json({ success: false, message: error.message });
+  if (!status || status.porcentagem !== 100) {
+    return res.status(404).end();
   }
+
+  const filePath = (status as any).downloadPath;
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).end();
+  }
+
+  // Se for apenas uma verificação (HEAD), retornamos 200 OK sem enviar o arquivo
+  if (req.method === 'HEAD') {
+    return res.status(200).end();
+  }
+
+  // Se for GET, envia o arquivo e limpa depois
+  res.download(filePath, "Auditoria.xlsx", (err) => {
+    if (!err) {
+      fs.unlinkSync(filePath);
+      delete excelProgress[taskId];
+    }
+  });
+};
+
+export const gerarExcel = async (req: Request, res: Response) => {
+  const taskId = req.body.taskId || `task_${Date.now()}`;
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+  // 1. Inicializa o objeto de progresso
+  excelProgress[taskId] = {
+    porcentagem: 0,
+    linhas: 0,
+    etapa: "Iniciando processamento...",
+  };
+
+  // 2. Responde imediatamente ao frontend
+  res.status(202).json({
+    success: true,
+    message: "Processamento iniciado em segundo plano",
+    taskId,
+  });
+
+  // 3. Inicia o trabalho pesado em "Background" (sem await para não travar a resposta)
+  (async () => {
+    try {
+      const jd_c: string[] = [];
+      const jd_d: string[] = [];
+      const core_c: string[] = [];
+      const core_d: string[] = [];
+
+      // --- ETAPA DE LEITURA (Streams) ---
+      atualizarStatus(taskId, 25, 0, `Gerando arquivo`);
+      await new Promise((resolve, reject) => {
+        let isHeader = true;
+        fs.createReadStream(files.file_jd[0].path)
+          .pipe(csv({ separator: ";", headers: false }))
+          .on("data", (row) => {
+            if (isHeader) {
+              isHeader = false;
+              return;
+            }
+            if (
+              Object.keys(row).length >= 19 &&
+              limparTexto(row[18]) === "EFETIVADO"
+            ) {
+              const tipo = limparTexto(row[5]).includes("CREDITO") ? "C" : "D";
+              const e2e = limparTexto(row[2]);
+              if (tipo === "C") jd_c.push(e2e);
+              else jd_d.push(e2e);
+            }
+          })
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      // --- 1.2 LEITURA CORE (DETECÇÃO DINÂMICA) ---
+      const contentSample = fs
+        .readFileSync(files.file_core[0].path, "utf8")
+        .slice(0, 1000);
+      const sep = contentSample.includes(";") ? ";" : ",";
+
+      await new Promise((resolve, reject) => {
+        let isHeader = true;
+        fs.createReadStream(files.file_core[0].path)
+          .pipe(csv({ separator: sep, headers: false }))
+          .on("data", (row) => {
+            if (isHeader) {
+              isHeader = false;
+              return;
+            }
+            if (Object.keys(row).length >= 2) {
+              const tipo = limparTexto(row[0]);
+              const e2e = limparTexto(row[1]);
+              if (tipo === "C") core_c.push(e2e);
+              else if (tipo === "D") core_d.push(e2e);
+            }
+          })
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      // --- ETAPA DE MONTAGEM (Lotes) ---
+      const workbook = new ExcelJS.Workbook();
+
+      const montarAbaAssincrona = async (
+        titulo: string,
+        listaCore: string[],
+        listaJD: string[],
+        base: number
+      ) => {
+        const sheet = workbook.addWorksheet(titulo);
+        sheet.getRow(1).values = ["E2E CORE", "E2E JD", "VALIDACAO", "PROCV"];
+        const maxRows = Math.max(listaCore.length, listaJD.length);
+        const indices = Array.from({ length: maxRows }, (_, i) => i);
+
+        await executarEmLotes(indices, 500, (i) => {
+          const rowNum = i + 2;
+          sheet.addRow([
+            listaCore[i] || "",
+            listaJD[i] || "",
+            {
+              formula: `=IF(OR(LEN(A${rowNum})>10,LEN(B${rowNum})>10),"SIM","-")`,
+            },
+            {
+              formula: `=IF(C${rowNum}="SIM",IF(ISERROR(VLOOKUP(B${rowNum},A:A,1,FALSE)),"NÃO ENCONTRADO","OK"),"-")`,
+            },
+          ]);
+          excelProgress[taskId].porcentagem =
+            base + Math.round((i / maxRows) * 15);
+        });
+      };
+
+      await montarAbaAssincrona("Credito", core_c, jd_c, 70);
+      await montarAbaAssincrona("Debito", core_d, jd_d, 85);
+
+      // --- FINALIZAÇÃO: SALVAR EM DISCO ---
+      const filePath = path.resolve(process.cwd(), 'uploads', `auditoria_${taskId}.xlsx`);
+      await workbook.xlsx.writeFile(filePath);
+
+      // Atualiza status final para o polling do frontend encontrar
+      excelProgress[taskId].porcentagem = 100;
+      excelProgress[taskId].etapa = "Concluído";
+      (excelProgress[taskId] as any).downloadPath = filePath;
+
+      // Limpa os CSVs originais
+      if (files.file_jd) fs.unlinkSync(files.file_jd[0].path);
+      if (files.file_core) fs.unlinkSync(files.file_core[0].path);
+    } catch (error) {
+      console.error(`Erro na Task ${taskId}:`, error);
+      excelProgress[taskId].etapa = "Erro no processamento";
+    }
+  })();
 };
 
 export const processarConciliacao = async (req: Request, res: Response) => {

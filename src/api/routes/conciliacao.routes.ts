@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
-import { processarConciliacao, excelProgress, gerarExcel } from '../controllers/conciliacao.controller';
+import { processarConciliacao, excelProgress, gerarExcel, baixarArquivo } from '../controllers/conciliacao.controller';
 
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
@@ -29,5 +29,7 @@ router.post('/gerar-excel', upload.fields([
   { name: 'file_jd', maxCount: 1 },
   { name: 'file_core', maxCount: 1 }
 ]), gerarExcel);
+
+router.get('/baixar-arquivo/:taskId', baixarArquivo);
 
 export default router;
