@@ -38,6 +38,8 @@ export default function ConciliacaoPage() {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [isSwapped, setIsSwapped] = useState(false);
   const [dataRef, setDataRef] = useState("");
+  const [fileJdName, setFileJdName] = useState("Nenhum arquivo escolhido");
+  const [fileCoreName, setFileCoreName] = useState("Nenhum arquivo escolhido");
 
   const [res, setRes] = useState<ProcessamentoRes | null>(null);
   const [formDataValues, setFormDataValues] = useState<Record<string, any> | null>(null);
@@ -181,6 +183,14 @@ export default function ConciliacaoPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'jd' | 'core') => {
+    const file = e.target.files?.[0];
+    const fileName = file ? file.name : "Nenhum arquivo escolhido";
+
+    if (type === 'jd') setFileJdName(fileName);
+    else setFileCoreName(fileName);
+  };
+
   const handleDownloadExcel = async () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
@@ -221,9 +231,9 @@ export default function ConciliacaoPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
-  
+
   const fmtNum = (v: number) => v.toLocaleString("pt-BR");
-  
+
   const parseMoeda = (v: string) =>
     parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 
@@ -375,9 +385,9 @@ export default function ConciliacaoPage() {
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden mb-6 bg-white">
                 <label className="bg-[#f8f9fa] border-r border-gray-200 px-4 py-2 text-sm font-medium cursor-pointer hover:bg-gray-100">
                   Escolher arquivo
-                  <input type="file" name="file_jd" accept=".csv" className="hidden" />
+                  <input type="file" name="file_jd" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'jd')}/>
                 </label>
-                <span className="px-4 py-2 text-sm text-gray-400 italic">Nenhum arquivo escolhido</span>
+                <span className="px-4 py-2 text-sm text-gray-400 italic">{fileJdName}</span>
               </div>
               <div className="grid grid-cols-3 gap-x-4 gap-y-5">
                 <InputOriginal label="Qtd Crédito" name="m_jd_qtd_c" />
@@ -395,9 +405,9 @@ export default function ConciliacaoPage() {
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden mb-6 bg-white">
                 <label className="bg-[#f8f9fa] border-r border-gray-200 px-4 py-2 text-sm font-medium cursor-pointer hover:bg-gray-100">
                   Escolher arquivo
-                  <input type="file" name="file_core" accept=".csv" className="hidden" />
+                  <input type="file" name="file_core" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'core')}/>
                 </label>
-                <span className="px-4 py-2 text-sm text-gray-400 italic">Nenhum arquivo escolhido</span>
+                <span className="px-4 py-2 text-sm text-gray-400 italic">{fileCoreName}</span>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                 <InputOriginal label="Qtd Crédito" name="m_core_qtd_c" />
@@ -522,7 +532,7 @@ export default function ConciliacaoPage() {
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
               <h5 className="text-[#0d6efd] font-bold text-lg border-b pb-2">Conciliação referente ao dia {jiraData.dataSel}</h5>
-              
+
               <div className="text-red-600 font-bold text-sm space-y-1">
                 {Math.abs(metrics!.diff.vc) > 0.01 && (
                   <p>• Falta {Math.abs(metrics!.diff.qc)} transação de Crédito no {metrics!.diff.qc > 0 ? "Core" : "JD"}.<br />
