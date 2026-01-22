@@ -5,32 +5,14 @@ import csv from 'csv-parser';
 import fs from 'fs';
 import { limparTexto, formatarValor } from '../utils/formatters';
 import path from 'path';
-
-export const excelProgress: Record<string, { porcentagem: number; linhas: number; etapa: string }> = {};
-
-/**
- * Utilitário: Processa em lotes para manter o Event Loop livre para o polling de progresso.
- */
-async function executarEmLotes<T>(data: T[], batchSize: number, callback: (item: T) => void) {
-  for (let i = 0; i < data.length; i += batchSize) {
-    const lote = data.slice(i, i + batchSize);
-    lote.forEach(callback);
-    await new Promise(resolve => setImmediate(resolve));
-  }
-}
-
-/**
- * Helper: Atualiza o status global.
- */
-function atualizarStatus(taskId: string, porcentagem: number, linhas: number, etapa: string) {
-  if (excelProgress[taskId]) {
-    excelProgress[taskId] = { porcentagem, linhas, etapa };
-  }
-}
+import { executarEmLotes } from '../utils/runInBatch';
+import { atualizarStatus, progress } from '../utils/updateStatus';
+import { IDataset } from '../interfaces/IDataset';
+import { ENV } from '@/config/env';
 
 export const baixarArquivo = async (req: Request, res: Response) => {
   const taskId = req.params.taskId as string;
-  const status = excelProgress[taskId];
+  const status = progress[taskId];
 
   if (!status || status.porcentagem !== 100) {
     return res.status(404).end();
@@ -48,10 +30,10 @@ export const baixarArquivo = async (req: Request, res: Response) => {
   }
 
   // Se for GET, envia o arquivo e limpa depois
-  res.download(filePath, "Auditoria.xlsx", (err) => {
+  res.download(filePath, `${ENV.API_FILENAME_OUTPUT}.xlsx`, (err) => {
     if (!err) {
       fs.unlinkSync(filePath);
-      delete excelProgress[taskId];
+      delete progress[taskId];
     }
   });
 };
@@ -61,7 +43,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
   // 1. Inicializa o objeto de progresso
-  excelProgress[taskId] = {
+  progress[taskId] = {
     porcentagem: 0,
     linhas: 0,
     etapa: "Iniciando processamento...",
@@ -159,7 +141,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
               formula: `=IF(C${rowNum}="SIM",IF(ISERROR(VLOOKUP(B${rowNum},A:A,1,FALSE)),"NÃO ENCONTRADO","OK"),"-")`,
             },
           ]);
-          excelProgress[taskId].porcentagem =
+          progress[taskId].porcentagem =
             base + Math.round((i / maxRows) * 15);
         });
       };
@@ -168,31 +150,30 @@ export const gerarExcel = async (req: Request, res: Response) => {
       await montarAbaAssincrona("Debito", core_d, jd_d, 85);
 
       // --- FINALIZAÇÃO: SALVAR EM DISCO ---
-      const filePath = path.resolve(process.cwd(), 'uploads', `auditoria_${taskId}.xlsx`);
+      const filePath = path.resolve(process.cwd(), 'uploads', `${ENV.API_FILENAME_OUTPUT.toLowerCase()}_${taskId}.xlsx`);
       await workbook.xlsx.writeFile(filePath);
 
       // Atualiza status final para o polling do frontend encontrar
-      excelProgress[taskId].porcentagem = 100;
-      excelProgress[taskId].etapa = "Concluído";
-      (excelProgress[taskId] as any).downloadPath = filePath;
+      progress[taskId].porcentagem = 100;
+      progress[taskId].etapa = "Concluído";
+      (progress[taskId] as any).downloadPath = filePath;
 
       // Limpa os CSVs originais
       if (files.file_jd) fs.unlinkSync(files.file_jd[0].path);
       if (files.file_core) fs.unlinkSync(files.file_core[0].path);
     } catch (error) {
       console.error(`Erro na Task ${taskId}:`, error);
-      excelProgress[taskId].etapa = "Erro no processamento";
+      progress[taskId].etapa = "Erro no processamento";
     }
   })();
 };
 
 export const processarConciliacao = async (req: Request, res: Response) => {
-  const taskId = req.body.taskId || 'default';
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
   
   try {
-    const dadosJd: Map<string, any> = new Map();
-    const dadosCore: Map<string, any> = new Map();
+    const dadosJd: Map<string, IDataset> = new Map();
+    const dadosCore: Map<string, IDataset> = new Map();
     const jdResumo = { C: { qtd: 0, val: 0 }, D: { qtd: 0, val: 0 } };
 
     // Leitura JD

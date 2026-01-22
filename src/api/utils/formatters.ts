@@ -1,4 +1,4 @@
-export const limparTexto = (txt: any): string => {
+export const limparTexto = (txt: string): string => {
   if (txt === null || txt === undefined) return "";
   const str = String(txt);
   return str

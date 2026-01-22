@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
-import { processarConciliacao, excelProgress, gerarExcel, baixarArquivo } from '../controllers/conciliacao.controller';
+import { processarConciliacao, gerarExcel, baixarArquivo } from '../controllers/conciliacao.controller';
+import { progress } from '../utils/updateStatus';
 
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 
 
@@ -21,8 +22,8 @@ router.post('/processar', upload.fields([
 ]), processarConciliacao);
 
 router.get('/progress/:taskId', (req, res) => {
-  const progress = excelProgress[req.params.taskId] || { porcentagem: 0, linhas: 0, etapa: 'Aguardando...' };
-  res.json(progress);
+  const mgsProgress= progress[req.params.taskId] || { porcentagem: 0, linhas: 0, etapa: 'Aguardando...' };
+  res.json(mgsProgress);
 });
 
 router.post('/gerar-excel', upload.fields([
