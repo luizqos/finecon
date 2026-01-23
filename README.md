@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📊 Finecon - Conciliação JD vs Core
 
-## Getting Started
+O **Finecon** é uma ferramenta de auditoria e reconciliação financeira desenvolvida para realizar o cruzamento de dados entre relatórios da **JD** e do **Core**. O sistema foi concebido para identificar divergências em transações (E2E IDs), calcular discrepâncias de valores e automatizar processos de suporte técnico.
 
-First, run the development server:
+## 🚀 Finalidade e Funcionalidades
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Cruzamento de Dados**: Processamento eficiente de ficheiros CSV com lógica de identificação de pendências cruzadas.
+- **Interface de Auditoria**: Visualização clara de métricas com indicadores de discrepância e animações de transição fluídas.
+- **Automação para JIRA**: Geração de resumos em *Jira Wiki Markup* para agilizar a abertura de chamados.
+- **Arquitetura BFF (Backend for Frontend)**: Camada de backend dedicada em Node.js para processamento pesado e segurança de dados.
+- **Exportação de Relatórios**: Geração de ficheiros Excel detalhados para análises externas.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tecnologias Utilizadas
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend**: Next.js 15, Tailwind CSS, Lucide React.
+- **Backend**: Node.js, Express, TypeScript (BFF).
+- **Processamento**: Node.js Streams (leitura eficiente de grandes CSVs).
+- **Testes**: Jest (Unitários e de Integração).
+- **Infraestrutura**: Docker e Docker Compose.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 💻 Execução Local (Sem Docker)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Esta modalidade é ideal para o desenvolvimento e depuração da lógica de negócio.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Pré-requisitos
+- Node.js 20.x ou superior.
+- NPM ou Yarn.
 
-## Deploy on Vercel
+### Instruções
+1.  **Instalar dependências**:
+    ```bash
+    npm install
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2.  **Configurar Variáveis de Ambiente**:
+    Crie um ficheiro `.env.local` na raiz com base no `.env` fornecido:
+    ```env
+    PORT=3001
+    UPLOAD_DIR=uploads
+    ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3.  **Executar o Pre-flight Check**:
+    Verifique se o ambiente cumpre todos os requisitos:
+    ```bash
+    npm run preflight
+    ```
+
+4.  **Iniciar o Ambiente de Desenvolvimento**:
+    ```bash
+    npm run dev
+    ```
+    O frontend estará disponível em `http://localhost:3000` e a API em `http://localhost:3001`.
+
+---
+
+## 🐳 Execução via Docker (Produção/VPS)
+
+Recomendado para ambientes de VPS Linux, garantindo isolamento e facilidade de deploy.
+
+### Pré-requisitos
+- Docker e Docker Compose instalados.
+
+### Instruções
+1.  **Build e Inicialização**:
+    O Dockerfile utiliza *multi-stage build* para otimizar o tamanho da imagem final:
+    ```bash
+    docker-compose up -d --build
+    ```
+
+2.  **Volumes e Persistência**:
+    - O container mapeia a pasta `./uploads` local para persistir os CSVs processados e ficheiros Excel gerados.
+
+3.  **Verificar Logs**:
+    ```bash
+    docker logs -f finecon_app
+    ```
+
+---
