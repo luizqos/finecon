@@ -10,7 +10,7 @@ function runPreflight() {
   console.log('🚀 Iniciando Pre-flight Check...');
   
   // process.cwd() garante que buscaremos na raiz do projeto, independente de estar em /src
-  const envPath = path.resolve(process.cwd(), '.env');
+  const envPath = path.resolve(process.cwd(), '.env.local');
 
   // 1. Verifica se o arquivo .env.local existe na raiz
   if (!fs.existsSync(envPath)) {
