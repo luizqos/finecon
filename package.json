@@ -5,12 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "fb": "concurrently -n \"BACK,FRONT\" -c \"blue,magenta\" \"npx tsx server.ts\" \"npm start\"",
-    "build": "next build",
-    "start": "next start",
+    "build:server": "tsc -p tsconfig.server.json && tsc-alias -p tsconfig.server.json",
+    "build": "next build && npm run build:server",
+    "start": "concurrently -n \"BACK,FRONT\" \"node dist/server.js\" \"next start\"",
     "preflight": "tsx src/scripts/preflight.ts",
-    "predev": "npm run preflight",
-    "prebuild": "npm run preflight",
-    "lint": "eslint"
+    "prebuild": "npm run preflight"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
@@ -40,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.2",
     "tailwindcss": "^4",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }

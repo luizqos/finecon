@@ -10,6 +10,14 @@ import { atualizarStatus, progress } from '../utils/updateStatus';
 import { IDataset } from '../interfaces/IDataset';
 import { ENV } from '@/config/env';
 
+export const healthCheck = async (req: Request, res: Response) => {
+  return res.status(200).json({
+    status: 'OK',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+};
+
 export const baixarArquivo = async (req: Request, res: Response) => {
   const taskId = req.params.taskId as string;
   const status = progress[taskId];
@@ -170,7 +178,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
 
 export const processarConciliacao = async (req: Request, res: Response) => {
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-  
+
   try {
     const dadosJd: Map<string, IDataset> = new Map();
     const dadosCore: Map<string, IDataset> = new Map();

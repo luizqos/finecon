@@ -5,7 +5,11 @@ import { cleanOldFiles } from '@/scripts/cleanup';
 import fs from 'fs';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 if (!fs.existsSync('./uploads')) {
@@ -15,9 +19,10 @@ if (!fs.existsSync('./uploads')) {
 // API Routes
 app.use('/api/conciliacao', conciliacaoRoutes);
 
-const PORT = 3001;
-const server = app.listen(PORT, () => {
-  console.log(`Servidor Finecon rodando na porta ${PORT}`);
+const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0';
+const server = app.listen(Number(PORT), HOST, () => {
+  console.log(`🚀 BFF Finecon rodando em http://${HOST}:${PORT}`);
 });
 
 server.timeout = 600000; 

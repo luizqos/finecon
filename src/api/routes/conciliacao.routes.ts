@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
-import { processarConciliacao, gerarExcel, baixarArquivo } from '../controllers/conciliacao.controller';
+import { processarConciliacao, gerarExcel, baixarArquivo, healthCheck } from '../controllers/conciliacao.controller';
 import { progress } from '../utils/updateStatus';
 
 const uploadDir = 'uploads/';
@@ -32,5 +32,8 @@ router.post('/gerar-excel', upload.fields([
 ]), gerarExcel);
 
 router.get('/baixar-arquivo/:taskId', baixarArquivo);
+
+
+router.get('/health', (req, res) => healthCheck(req, res));
 
 export default router;
