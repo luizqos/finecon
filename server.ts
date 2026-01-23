@@ -19,7 +19,7 @@ if (!fs.existsSync('./uploads')) {
 // API Routes
 app.use('/api/conciliacao', conciliacaoRoutes);
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 9001;
 const HOST = '0.0.0.0';
 const server = app.listen(Number(PORT), HOST, () => {
   console.log(`🚀 BFF Finecon rodando em http://${HOST}:${PORT}`);

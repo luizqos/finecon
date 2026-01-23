@@ -43,8 +43,8 @@ RUN mkdir -p uploads && chown nextjs:nodejs uploads
 
 USER nextjs
 
-# O servidor Express roda na 3001, o Next na 3000
-EXPOSE 3000 3001
+# O servidor Express roda na 9001, o Next na 9000
+EXPOSE 9000 9001
 
 # Comando para iniciar o servidor (ajuste conforme seu script de start)
 CMD ["npm", "run", "start"]

@@ -39,7 +39,7 @@ Esta modalidade é ideal para o desenvolvimento e depuração da lógica de neg�
 2.  **Configurar Variáveis de Ambiente**:
     Crie um ficheiro `.env.local` na raiz com base no `.env` fornecido:
     ```env
-    PORT=3001
+    PORT=9001
     UPLOAD_DIR=uploads
     ```
 
@@ -53,7 +53,7 @@ Esta modalidade é ideal para o desenvolvimento e depuração da lógica de neg�
     ```bash
     npm run dev
     ```
-    O frontend estará disponível em `http://localhost:3000` e a API em `http://localhost:3001`.
+    O frontend estará disponível em `http://localhost:9000` e a API em `http://localhost:9001`.
 
 ---
 

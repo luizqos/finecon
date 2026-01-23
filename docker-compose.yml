@@ -6,8 +6,8 @@ services:
     container_name: finecon_app
     restart: always
     ports:
-      - "3000:3000"
-      - "3001:3001"
+      - "9000:9000"
+      - "9001:9001"
     env_file:
       - .env
     volumes:
