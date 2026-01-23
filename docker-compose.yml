@@ -4,18 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: finecon_app
-    restart: always
     ports:
       - "9000:9000"
       - "9001:9001"
-    env_file:
-      - .env
     volumes:
       - ./uploads:/app/uploads
-      - /app/node_modules
-    networks:
-      - finecon_network
+      - next_cache:/app/.next/cache
 
-networks:
-  finecon_network:
-    driver: bridge
+volumes:
+  next_cache:
