@@ -12,10 +12,13 @@ services:
       - .env
     volumes:
       - ./uploads:/app/uploads
-      - /app/node_modules
+      - next_cache:/app/.next/cache
     networks:
       - finecon_network
 
 networks:
   finecon_network:
     driver: bridge
+
+volumes:
+  next_cache: # Define o volume de cache
