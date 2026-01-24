@@ -100,54 +100,46 @@ export default function ConciliacaoPage() {
   const handleFinalizarDownload = useCallback(async (id: string) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    setLoaderTitle("Sincronizando arquivo...");
+    setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const executarDownloadInvisivel = (id: string) => {
+    const maxTentativas = 15;
+    let sucesso = false;
+
+    // Loop de verificação de disponibilidade do ficheiro
+    for (let i = 0; i < maxTentativas; i++) {
+      try {
+        const check = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`, { method: "HEAD" });
+        
+        if (check.ok) {
+          sucesso = true;
+          break;
+        }
+      } catch (err) {
+        console.warn("Ficheiro ainda não disponível, a tentar novamente...");
+      }
+      // Aguarda 2 segundos entre tentativas
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    if (sucesso) {
+      // Dispara o download de forma limpa
+      const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
+      window.location.assign(downloadUrl);
+      
       confetti({
         particleCount: 150,
         spread: 70,
         origin: { y: 0.6 },
         colors: ["#22c55e", "#3b82f6", "#f59e0b"],
       });
-      const fileName = ENV.API_FILENAME_OUTPUT;
 
-      console.log('filename', fileName);
+      setLoaderTitle("Download concluído!");
+    } else {
+      alert("O ficheiro foi gerado, mas houve um erro ao iniciar o download automático. Verifique a sua ligação.");
+    }
 
-      const link = document.createElement("a");
-      link.href = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
-      link.setAttribute("download", `${fileName}_${id}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      setLoaderTitle("Concluído!");
-      limparProcessamento();
-    };
-
-    const dispararRetentativas = async (tentativasRestantes: number) => {
-      if (tentativasRestantes <= 0) {
-        limparProcessamento();
-        return;
-      }
-
-      try {
-        const check = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`, {
-          method: "HEAD",
-        });
-
-        if (check.ok) {
-          executarDownloadInvisivel(id);
-        } else {
-          setTimeout(() => dispararRetentativas(tentativasRestantes - 1), 2000);
-        }
-      } catch (err) {
-        console.error(err);
-        setTimeout(() => dispararRetentativas(tentativasRestantes - 1), 2000);
-      }
-    };
-
-    dispararRetentativas(30);
+    limparProcessamento();
   }, [limparProcessamento]);
 
   // --- MONITORAMENTO DE PROGRESSO (POLLING) ---
