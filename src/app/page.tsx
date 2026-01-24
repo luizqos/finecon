@@ -30,6 +30,23 @@ interface ProcessamentoRes {
   };
 }
 
+// --- SUBCOMPONENTE DE INPUT ---
+function InputOriginal({ label, name, placeholder = "0" }: { label: string; name: string; placeholder?: string }) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-tight block">
+        {label}
+      </label>
+      <input
+        name={name}
+        className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+
 export default function ConciliacaoPage() {
   // --- ESTADOS ---
   const [isLoading, setIsLoading] = useState(false);
@@ -95,8 +112,8 @@ export default function ConciliacaoPage() {
       });
       const fileName = ENV.API_FILENAME_OUTPUT;
 
-      console.log('filename',fileName);
-      
+      console.log('filename', fileName);
+
       const link = document.createElement("a");
       link.href = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
       link.setAttribute("download", `${fileName}_${id}.xlsx`);
@@ -316,21 +333,6 @@ export default function ConciliacaoPage() {
     }
   };
 
-  // --- SUBCOMPONENTE DE INPUT ---
-  function InputOriginal({ label, name, placeholder = "0" }: { label: string; name: string; placeholder?: string }) {
-    return (
-      <div className="space-y-2">
-        <label className="text-[11px] font-bold text-gray-500 uppercase tracking-tight block">
-          {label}
-        </label>
-        <input
-          name={name}
-          className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-          placeholder={placeholder}
-        />
-      </div>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-gray-50 py-10 px-4 md:px-8 text-gray-800">
@@ -388,7 +390,7 @@ export default function ConciliacaoPage() {
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden mb-6 bg-white">
                 <label className="bg-[#f8f9fa] border-r border-gray-200 px-4 py-2 text-sm font-medium cursor-pointer hover:bg-gray-100">
                   Escolher arquivo
-                  <input type="file" name="file_jd" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'jd')}/>
+                  <input type="file" name="file_jd" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'jd')} />
                 </label>
                 <span className="px-4 py-2 text-sm text-gray-400 italic">{fileJdName}</span>
               </div>
@@ -408,7 +410,7 @@ export default function ConciliacaoPage() {
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden mb-6 bg-white">
                 <label className="bg-[#f8f9fa] border-r border-gray-200 px-4 py-2 text-sm font-medium cursor-pointer hover:bg-gray-100">
                   Escolher arquivo
-                  <input type="file" name="file_core" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'core')}/>
+                  <input type="file" name="file_core" accept=".csv" className="hidden" onChange={(e) => handleFileChange(e, 'core')} />
                 </label>
                 <span className="px-4 py-2 text-sm text-gray-400 italic">{fileCoreName}</span>
               </div>
