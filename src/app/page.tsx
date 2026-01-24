@@ -93,10 +93,14 @@ export default function ConciliacaoPage() {
         origin: { y: 0.6 },
         colors: ["#22c55e", "#3b82f6", "#f59e0b"],
       });
+      const fileName = ENV.API_FILENAME_OUTPUT;
 
+      console.log('filename',fileName);
+      console.log('lower',  fileName.toLowerCase());
+      
       const link = document.createElement("a");
       link.href = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
-      link.setAttribute("download", `${ENV.API_FILENAME_OUTPUT.toLowerCase()}_${id}.xlsx`);
+      link.setAttribute("download", `${fileName.toLowerCase()}_${id}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
