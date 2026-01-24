@@ -4,6 +4,5 @@ dist
 uploads
 .git
 .env
-.env.local
 *.log
 npm-debug.log*
