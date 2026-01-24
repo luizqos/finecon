@@ -96,11 +96,10 @@ export default function ConciliacaoPage() {
       const fileName = ENV.API_FILENAME_OUTPUT;
 
       console.log('filename',fileName);
-      console.log('lower',  fileName.toLowerCase());
       
       const link = document.createElement("a");
       link.href = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
-      link.setAttribute("download", `${fileName.toLowerCase()}_${id}.xlsx`);
+      link.setAttribute("download", `${fileName}_${id}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
