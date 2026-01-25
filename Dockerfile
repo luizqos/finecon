@@ -10,8 +10,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-#RUN touch .env.local && npm run build # Gera dist/ e .next/
-RUN npm prune --production && npm run build # Gera dist/ e .next/
+RUN npm run build # Gera dist/ e .next/
 
 # ESTÁGIO 3: Runner
 FROM node:20-alpine AS runner
