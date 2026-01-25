@@ -12,25 +12,34 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN touch .env.local && npm run build # Gera dist/ e .next/
 
-# ESTÁGIO 3: Runner (Produção)
+# ESTÁGIO 3: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
+
 ENV NODE_ENV=production
-ENV PORT=3000
+# Desabilita telemetria para performance
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Criar usuário de segurança
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copiar apenas o necessário do modo standalone
+# 1. Copia os arquivos do modo standalone do Next.js
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/dist ./dist 
-COPY --from=builder /app/package.json ./package.json
 
-# Garantir pasta de uploads
+# 2. Copia a pasta dist do seu backend compilado
+COPY --from=builder /app/dist ./dist
+
+# 3. IMPORTANTE: Como o standalone não traz os módulos do backend, 
+COPY --from=builder /app/node_modules ./node_modules
+
+# Garante permissões na pasta de uploads
 RUN mkdir -p uploads && chown nextjs:nodejs uploads
+
 USER nextjs
 
 EXPOSE 9000 9001
+
+# O comando start agora encontrará o 'express' e o 'concurrently'
 CMD ["npm", "run", "start"]
