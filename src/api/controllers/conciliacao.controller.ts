@@ -38,7 +38,7 @@ export const baixarArquivo = async (req: Request, res: Response) => {
   }
 
   // Se for GET, envia o arquivo e limpa depois
-  res.download(filePath, `${ENV.API_FILENAME_OUTPUT}-${formatarData()}.xlsx`, (err) => {
+  res.download(filePath, `${ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT}-${formatarData()}.xlsx`, (err) => {
     if (!err) {
       fs.unlinkSync(filePath);
       delete progress[taskId];
@@ -158,7 +158,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
       await montarAbaAssincrona("Debito", core_d, jd_d, 85);
 
       // --- FINALIZAÇÃO: SALVAR EM DISCO ---
-      const filePath = path.resolve(process.cwd(), 'uploads', `${ENV.API_FILENAME_OUTPUT.toLowerCase()}_${taskId}.xlsx`);
+      const filePath = path.resolve(process.cwd(), 'uploads', `${ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT.toLowerCase()}_${taskId}.xlsx`);
       await workbook.xlsx.writeFile(filePath);
 
       // Atualiza status final para o polling do frontend encontrar

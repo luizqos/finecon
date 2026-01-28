@@ -5,7 +5,7 @@
 const validateEnv = () => {
   const requiredEnvs = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    API_FILENAME_OUTPUT: process.env.API_FILENAME_OUTPUT
+    NEXT_PUBLIC_API_FILENAME_OUTPUT: process.env.NEXT_PUBLIC_API_FILENAME_OUTPUT
   };
 
   const missing = Object.entries(requiredEnvs)

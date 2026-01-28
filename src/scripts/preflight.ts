@@ -3,7 +3,7 @@ import path from 'path';
 
 const REQUIRED_ENV_VARS = [
   'NEXT_PUBLIC_API_URL',
-  'API_FILENAME_OUTPUT'
+  'NEXT_PUBLIC_API_FILENAME_OUTPUT'
 ];
 
 function runPreflight() {

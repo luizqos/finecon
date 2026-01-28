@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
+import { formatarData } from "@/api/utils/formatters";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
+const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
 
 // --- Interfaces ---
 interface Pendencia {
@@ -99,18 +101,20 @@ export default function ConciliacaoPage() {
     }, 3000);
   }, []);
 
-  const handleFinalizarDownload = useCallback(async (id: string) => {
+const handleFinalizarDownload = useCallback(async (id: string) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
+    const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
     const maxTentativas = 15;
     let sucesso = false;
 
+    // 1. Aguarda o arquivo estar pronto no servidor
     for (let i = 0; i < maxTentativas; i++) {
       try {
-        const check = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`, { method: "HEAD" });
+        const check = await fetch(downloadUrl, { method: "HEAD" });
         if (check.ok) {
           sucesso = true;
           break;
@@ -122,23 +126,42 @@ export default function ConciliacaoPage() {
     }
 
     if (sucesso) {
-      const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
-      window.location.assign(downloadUrl);
-      
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#22c55e", "#3b82f6", "#f59e0b"],
-      });
+      try {
+        const response = await fetch(downloadUrl);
+        if (!response.ok) throw new Error("Erro ao baixar o arquivo");
+        
+        const blob = await response.blob();
+        
+        const url = window.URL.createObjectURL(blob);
+        
+        const a = document.createElement("a");
+        a.href = url;
+        const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
+        a.download = nomeFormatado;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 5. Limpeza: remove o link e libera a memória da URL
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
 
-      setLoaderTitle("Download concluído!");
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ["#22c55e", "#3b82f6", "#f59e0b"],
+        });
+
+        setLoaderTitle("Download concluído!");
+      } catch (err) {
+        console.error(err);
+      }
     } else {
-      alert("Erro ao iniciar o download automático.");
+      alert("O tempo de espera esgotou. Tente gerar o arquivo novamente.");
     }
     limparProcessamento();
   }, [limparProcessamento]);
-
+  
   // --- MONITORAMENTO DE PROGRESSO ---
   useEffect(() => {
     if (isLoading && taskId) {
