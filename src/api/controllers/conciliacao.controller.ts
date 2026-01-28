@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
 import csv from 'csv-parser';
 import fs from 'fs';
-import { limparTexto, formatarValor } from '../utils/formatters';
+import { limparTexto, formatarValor, formatarData } from '../utils/formatters';
 import path from 'path';
 import { executarEmLotes } from '../utils/runInBatch';
 import { atualizarStatus, progress } from '../utils/updateStatus';
@@ -38,7 +38,7 @@ export const baixarArquivo = async (req: Request, res: Response) => {
   }
 
   // Se for GET, envia o arquivo e limpa depois
-  res.download(filePath, `${ENV.API_FILENAME_OUTPUT}.xlsx`, (err) => {
+  res.download(filePath, `${ENV.API_FILENAME_OUTPUT}-${formatarData()}.xlsx`, (err) => {
     if (!err) {
       fs.unlinkSync(filePath);
       delete progress[taskId];
