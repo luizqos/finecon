@@ -5,7 +5,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import {
   ArrowLeftRight,
   Rocket,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
@@ -106,24 +108,20 @@ export default function ConciliacaoPage() {
     const maxTentativas = 15;
     let sucesso = false;
 
-    // Loop de verificação de disponibilidade do ficheiro
     for (let i = 0; i < maxTentativas; i++) {
       try {
         const check = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`, { method: "HEAD" });
-        
         if (check.ok) {
           sucesso = true;
           break;
         }
       } catch (err) {
-        console.warn("Ficheiro ainda não disponível, a tentar novamente...");
+        console.warn("Ficheiro ainda não disponível...");
       }
-      // Aguarda 2 segundos entre tentativas
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     if (sucesso) {
-      // Dispara o download de forma limpa
       const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
       window.location.assign(downloadUrl);
       
@@ -136,13 +134,12 @@ export default function ConciliacaoPage() {
 
       setLoaderTitle("Download concluído!");
     } else {
-      alert("O ficheiro foi gerado, mas houve um erro ao iniciar o download automático. Verifique a sua ligação.");
+      alert("Erro ao iniciar o download automático.");
     }
-
     limparProcessamento();
   }, [limparProcessamento]);
 
-  // --- MONITORAMENTO DE PROGRESSO (POLLING) ---
+  // --- MONITORAMENTO DE PROGRESSO ---
   useEffect(() => {
     if (isLoading && taskId) {
       intervalRef.current = setInterval(async () => {
@@ -163,13 +160,10 @@ export default function ConciliacaoPage() {
         }
       }, 2000);
     }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isLoading, taskId, handleFinalizarDownload, interromperProcessamento]);
 
-  // --- MANIPULADORES DE EVENTO ---
+  // --- MANIPULADORES ---
   const handleProcessar = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -189,7 +183,6 @@ export default function ConciliacaoPage() {
       }
     } catch (err) {
       alert("Erro ao processar ficheiros.");
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +191,6 @@ export default function ConciliacaoPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'jd' | 'core') => {
     const file = e.target.files?.[0];
     const fileName = file ? file.name : "Nenhum arquivo escolhido";
-
     if (type === 'jd') setFileJdName(fileName);
     else setFileCoreName(fileName);
   };
@@ -206,49 +198,37 @@ export default function ConciliacaoPage() {
   const handleDownloadExcel = async () => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
-
-    if (
-      !(fd.get("file_jd") as File)?.size ||
-      !(fd.get("file_core") as File)?.size
-    ) {
-      alert("Selecione os dois arquivos CSV para gerar o Excel.");
+    if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
+      alert("Selecione os dois arquivos CSV.");
       return;
     }
-
     setIsLoading(true);
     setLoaderTitle("Iniciando geração do Excel...");
     setProgress(0);
-
     try {
       const response = await fetch(`${API_URL}/api/conciliacao/gerar-excel`, {
         method: "POST",
         body: fd,
       });
-
       const data = await response.json();
-      if (data.success) {
-        setTaskId(data.taskId);
-      } else {
-        throw new Error(data.message);
-      }
+      if (data.success) setTaskId(data.taskId);
+      else throw new Error(data.message);
     } catch (err: any) {
       alert(err.message || "Erro ao iniciar geração.");
       setIsLoading(false);
     }
   };
 
-  // --- CÁLCULOS E FILTROS ---
+  // --- UTILITÁRIOS ---
   const fmtCur = (v: number) =>
-    v.toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const fmtNum = (v: number) => v.toLocaleString("pt-BR");
 
   const parseMoeda = (v: string) =>
     parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 
+  // --- CÁLCULOS ---
   const metrics = useMemo(() => {
     if (!formDataValues) return null;
     const jd_qc = (parseInt(formDataValues.m_jd_qtd_c) || 0) + (parseInt(formDataValues.m_jd_qtd_dev_c) || 0);
@@ -293,18 +273,28 @@ export default function ConciliacaoPage() {
       { titulo: "E2E faltante no Core Débito", lista: res.pendencias.filter((p) => p.falta === "CORE" && p.tipo === "D") },
     ];
 
+    // Lógica de verificação de divergência
+    const temDivergencia = 
+      Math.abs(metrics.diff.qc) > 0 || 
+      Math.abs(metrics.diff.vc) > 0.01 || 
+      Math.abs(metrics.diff.qd) > 0 || 
+      Math.abs(metrics.diff.vd) > 0.01;
+
     let textoClipboard = `*Conciliação referente ao dia ${dataSel}*\n\n`;
 
-    const addAlerta = (diffQ: number, diffV: number, tipo: string) => {
-      if (Math.abs(diffQ) > 0 || Math.abs(diffV) > 0.01) {
-        const local = diffQ > 0 ? "Core" : "JD";
-        textoClipboard += `* Falta ${Math.abs(diffQ)} transação de ${tipo} no ${local}.\n`;
-        textoClipboard += `  Diferença no Valor da conta ${tipo} é de R$ ${fmtCur(Math.abs(diffV))}.\n`;
-      }
-    };
-
-    addAlerta(metrics.diff.qc, metrics.diff.vc, "Crédito");
-    addAlerta(metrics.diff.qd, metrics.diff.vd, "Débito");
+    if (!temDivergencia) {
+      textoClipboard += `✅ *Conciliação realizada com sucesso! Não foram encontradas divergências.*\n`;
+    } else {
+      const addAlerta = (diffQ: number, diffV: number, tipo: string) => {
+        if (Math.abs(diffQ) > 0 || Math.abs(diffV) > 0.01) {
+          const local = diffQ > 0 ? "Core" : "JD";
+          textoClipboard += `* Falta ${Math.abs(diffQ)} transação de ${tipo} no ${local}.\n`;
+          textoClipboard += `  Diferença no Valor da conta ${tipo} é de R$ ${fmtCur(Math.abs(diffV))}.\n`;
+        }
+      };
+      addAlerta(metrics.diff.qc, metrics.diff.vc, "Crédito");
+      addAlerta(metrics.diff.qd, metrics.diff.vd, "Débito");
+    }
 
     textoClipboard += `\n*CORE*\nC: ${fmtNum(metrics.core.qc)} | R$ ${fmtCur(metrics.core.vc)}\nD: ${fmtNum(metrics.core.qd)} | R$ ${fmtCur(metrics.core.vd)}\n`;
     textoClipboard += `\n*JD*\nC: ${fmtNum(metrics.jd.qc)} | R$ ${fmtCur(metrics.jd.vc)}\nD: ${fmtNum(metrics.jd.qd)} | R$ ${fmtCur(metrics.jd.vd)}\n`;
@@ -315,7 +305,7 @@ export default function ConciliacaoPage() {
       }
     });
 
-    return { dataSel, grupos, textoClipboard };
+    return { dataSel, grupos, textoClipboard, temDivergencia };
   }, [res, metrics, dataRef]);
 
   const copiarParaJira = () => {
@@ -324,7 +314,6 @@ export default function ConciliacaoPage() {
       alert("Texto copiado para o JIRA!");
     }
   };
-
 
   return (
     <main className="min-h-screen bg-gray-50 py-10 px-4 md:px-8 text-gray-800">
@@ -335,14 +324,9 @@ export default function ConciliacaoPage() {
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
             <h4 className="font-bold text-lg mb-2">{loaderTitle}</h4>
             <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden mb-2">
-              <div
-                className="bg-blue-600 h-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              ></div>
+              <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
             </div>
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
-              {progress}% concluído
-            </p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{progress}% concluído</p>
           </div>
         </div>
       )}
@@ -355,9 +339,7 @@ export default function ConciliacaoPage() {
         <form ref={formRef} onSubmit={handleProcessar} className="space-y-6">
           <div className="flex justify-center">
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm text-center">
-              <label className="block text-[11px] font-black text-gray-500 uppercase mb-3 tracking-widest">
-                Data do Movimento
-              </label>
+              <label className="block text-[11px] font-black text-gray-500 uppercase mb-3 tracking-widest">Data do Movimento</label>
               <input
                 type="date"
                 value={dataRef}
@@ -527,58 +509,83 @@ export default function ConciliacaoPage() {
               <h3 className="font-bold flex items-center gap-2">🎫 Resumo JIRA</h3>
               <button onClick={() => setShowJiraModal(false)} className="hover:text-gray-400 text-2xl">&times;</button>
             </div>
-            <div className="p-6 overflow-y-auto space-y-4">
+            
+            <div className="p-6 overflow-y-auto space-y-6">
               <h5 className="text-[#0d6efd] font-bold text-lg border-b pb-2">Conciliação referente ao dia {jiraData.dataSel}</h5>
 
-              <div className="text-red-600 font-bold text-sm space-y-1">
-                {Math.abs(metrics!.diff.vc) > 0.01 && (
-                  <p>• Falta {Math.abs(metrics!.diff.qc)} transação de Crédito no {metrics!.diff.qc > 0 ? "Core" : "JD"}.<br />
-                    <span className="ml-3">Diferença no Valor da conta Crédito é de R$ {fmtCur(Math.abs(metrics!.diff.vc))}.</span>
-                  </p>
-                )}
-                {Math.abs(metrics!.diff.vd) > 0.01 && (
-                  <p>• Falta {Math.abs(metrics!.diff.qd)} transação de Débito no {metrics!.diff.qd > 0 ? "Core" : "JD"}.<br />
-                    <span className="ml-3">Diferença no Valor da conta Débito é de R$ {fmtCur(Math.abs(metrics!.diff.vd))}.</span>
-                  </p>
-                )}
+              {/* BLOCO DE DIVERGÊNCIAS / SUCESSO */}
+              {!jiraData.temDivergencia ? (
+                <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-3">
+                  <CheckCircle2 className="text-green-600" size={24} />
+                  <div>
+                    <p className="font-black text-sm uppercase tracking-tight">Conciliação Concluída!</p>
+                    <p className="text-xs opacity-90">Não foram encontradas divergências de quantidade ou valor.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle size={20} className="text-red-600" />
+                    <span className="font-black text-xs uppercase">Divergências Identificadas</span>
+                  </div>
+                  {Math.abs(metrics!.diff.vc) > 0.01 && (
+                    <p className="text-sm">
+                      • Falta <b>{Math.abs(metrics!.diff.qc)}</b> transação de Crédito no <b>{metrics!.diff.qc > 0 ? "Core" : "JD"}</b>.<br />
+                      <span className="ml-3 text-xs">Diferença de Valor: R$ {fmtCur(Math.abs(metrics!.diff.vc))}.</span>
+                    </p>
+                  )}
+                  {Math.abs(metrics!.diff.vd) > 0.01 && (
+                    <p className="text-sm">
+                      • Falta <b>{Math.abs(metrics!.diff.qd)}</b> transação de Débito no <b>{metrics!.diff.qd > 0 ? "Core" : "JD"}</b>.<br />
+                      <span className="ml-3 text-xs">Diferença de Valor: R$ {fmtCur(Math.abs(metrics!.diff.vd))}.</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* TABELAS RESUMO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {["CORE", "JD"].map((label) => (
+                  <div key={label} className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 px-3 py-1.5 border-b">
+                      <strong className="text-[10px] uppercase tracking-widest text-gray-600">{label}</strong>
+                    </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-gray-400 bg-gray-50/50">
+                          <th className="p-1.5 text-left font-medium">Tipo</th>
+                          <th className="p-1.5 text-center font-medium">Qtd</th>
+                          <th className="p-1.5 text-right font-medium">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="p-1.5 font-bold">C</td>
+                          <td className="p-1.5 text-center">{fmtNum(label === "CORE" ? metrics!.core.qc : metrics!.jd.qc)}</td>
+                          <td className="p-1.5 text-right">R$ {fmtCur(label === "CORE" ? metrics!.core.vc : metrics!.jd.vc)}</td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="p-1.5 font-bold">D</td>
+                          <td className="p-1.5 text-center">{fmtNum(label === "CORE" ? metrics!.core.qd : metrics!.jd.qd)}</td>
+                          <td className="p-1.5 text-right">R$ {fmtCur(label === "CORE" ? metrics!.core.vd : metrics!.jd.vd)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
               </div>
 
-              {["CORE", "JD"].map((label) => (
-                <div key={label}>
-                  <strong className="text-sm block mb-1 uppercase tracking-wider">{label}</strong>
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-gray-100 text-gray-700">
-                        <th className="border p-1.5 text-left">Tipo</th>
-                        <th className="border p-1.5 text-center">Qtd</th>
-                        <th className="border p-1.5 text-right">Valor (R$)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border p-1.5">C</td>
-                        <td className="border p-1.5 text-center">{fmtNum(label === "CORE" ? metrics!.core.qc : metrics!.jd.qc)}</td>
-                        <td className="border p-1.5 text-right">{fmtCur(label === "CORE" ? metrics!.core.vc : metrics!.jd.vc)}</td>
-                      </tr>
-                      <tr>
-                        <td className="border p-1.5">D</td>
-                        <td className="border p-1.5 text-center">{fmtNum(label === "CORE" ? metrics!.core.qd : metrics!.jd.qd)}</td>
-                        <td className="border p-1.5 text-right">{fmtCur(label === "CORE" ? metrics!.core.vd : metrics!.jd.vd)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-
+              {/* LISTAGEM DE E2E NO MODAL */}
               {jiraData.grupos.map((g, idx) => g.lista.length > 0 && (
                 <div key={idx} className="space-y-1">
-                  <strong className="text-xs uppercase">{g.titulo} ({g.lista.length})</strong>
+                  <strong className="text-[10px] text-gray-500 uppercase tracking-widest">{g.titulo} ({g.lista.length})</strong>
                   <div className="bg-gray-50 border rounded p-2 max-h-24 overflow-y-auto">
                     {g.lista.map((p) => <div key={p.e2e} className="text-[10px] font-mono text-[#d63384] font-bold">{p.e2e}</div>)}
                   </div>
                 </div>
               ))}
             </div>
+
             <div className="p-4 bg-gray-50 border-t flex justify-end">
               <button onClick={copiarParaJira} className="bg-[#0d6efd] text-white px-6 py-2 rounded font-bold hover:bg-blue-700 transition-colors shadow-lg">
                 Copiar para o JIRA
