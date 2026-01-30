@@ -12,6 +12,7 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
+import toast from "react-hot-toast";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
@@ -157,7 +158,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
         console.error(err);
       }
     } else {
-      alert("O tempo de espera esgotou. Tente gerar o arquivo novamente.");
+      toast.error("O tempo de espera esgotou. Tente gerar o arquivo novamente.");
     }
     limparProcessamento();
   }, [limparProcessamento]);
@@ -202,10 +203,10 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
         setRes(data);
         setFormDataValues(Object.fromEntries(fd));
       } else {
-        alert(data.message);
+        toast.error(data.message);
       }
     } catch (err) {
-      alert("Erro ao processar ficheiros.");
+      toast.error("Erro ao processar ficheiros.");
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +223,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
-      alert("Selecione os dois arquivos CSV.");
+      toast.error("Selecione os dois arquivos CSV.");
       return;
     }
     setIsLoading(true);
@@ -237,7 +238,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
       if (data.success) setTaskId(data.taskId);
       else throw new Error(data.message);
     } catch (err: any) {
-      alert(err.message || "Erro ao iniciar geração.");
+      toast.error(err.message || "Erro ao iniciar geração.");
       setIsLoading(false);
     }
   };
@@ -334,7 +335,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
   const copiarParaJira = () => {
     if (jiraData) {
       navigator.clipboard.writeText(jiraData.textoClipboard);
-      alert("Texto copiado para o JIRA!");
+      toast.success("Texto copiado para o JIRA!");
     }
   };
 
