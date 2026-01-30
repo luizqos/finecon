@@ -223,6 +223,8 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
+      console.log('falta arquivo');
+      
       toast.error("Selecione os dois arquivos CSV.");
       return;
     }
@@ -334,7 +336,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
 
   const copiarParaJira = () => {
     if (jiraData) {
-      navigator.clipboard?.writeText(jiraData.textoClipboard);
+      navigator.clipboard.writeText(jiraData.textoClipboard);
       toast.success("Texto copiado para o JIRA!");
     }
   };
