@@ -334,7 +334,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
 
   const copiarParaJira = () => {
     if (jiraData) {
-      navigator.clipboard.writeText(jiraData.textoClipboard);
+      navigator.clipboard?.writeText(jiraData.textoClipboard);
       toast.success("Texto copiado para o JIRA!");
     }
   };
