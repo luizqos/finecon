@@ -12,6 +12,7 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
+import { toastSuccess } from "@/libs/toast";
 import toast from "react-hot-toast";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
@@ -224,6 +225,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     const fd = new FormData(formRef.current);
     if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
       console.log('falta arquivo');
+      toastSuccess("Selecione os dois !");
       
       toast.error("Selecione os dois arquivos CSV.");
       return;
