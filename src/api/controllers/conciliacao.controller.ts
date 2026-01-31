@@ -158,7 +158,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
       await montarAbaAssincrona("Debito", core_d, jd_d, 85);
 
       // --- FINALIZAÇÃO: SALVAR EM DISCO ---
-      const filePath = path.resolve(process.cwd(), 'uploads', `${ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT.toLowerCase()}_${taskId}.xlsx`);
+      const filePath = path.resolve(process.cwd(), 'uploads', `${ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT}_${taskId}.xlsx`);
       await workbook.xlsx.writeFile(filePath);
 
       // Atualiza status final para o polling do frontend encontrar
