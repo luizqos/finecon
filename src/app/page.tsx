@@ -223,7 +223,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
-      toast("success", "Selecione os dois arquivos CSV.");
+      toast("info", "Informe o arquivo CSV.");
       return;
     }
     setIsLoading(true);
