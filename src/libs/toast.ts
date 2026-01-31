@@ -1,23 +1,29 @@
 import { showToast } from "nextjs-toast-notify";
 
-// Definimos configurações padrão para evitar repetição
+// Tipagem para os status permitidos
+type ToastStatus = "success" | "error" | "warning" | "info";
+
 const defaultOptions = {
     duration: 4000,
     progress: true,
-    position: "top-right",
-    transition: "bounceIn",
+    position: "top-right" as const,
+    transition: "bounceIn" as const,
     icon: '',
     sound: true,
 };
-export const toastSuccess = (message: string, customOptions = {}) => {
-    return showToast.success(message || "Sucesso", {
-        ...defaultOptions,
-        ...customOptions,
-    });
+
+// Mapa de mensagens padrão para cada status
+const defaultMessages: Record<ToastStatus, string> = {
+    success: "Sucesso",
+    error: "Ocorreu um erro!",
+    warning: "Atenção",
+    info: "Informação",
 };
 
-export const toastError = (message: string, customOptions = {}) => {
-    return showToast.error(message || "Ocorreu erro!", {
+export const toast = (status: ToastStatus, message?: string, customOptions = {}) => {
+    const toastFn = showToast[status];
+
+    return toastFn(message || defaultMessages[status], {
         ...defaultOptions,
         ...customOptions,
     });

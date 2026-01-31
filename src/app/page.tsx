@@ -12,8 +12,7 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
-import { toastSuccess } from "@/libs/toast";
-import toast from "react-hot-toast";
+import { toast } from "@/libs/toast";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
@@ -159,7 +158,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
         console.error(err);
       }
     } else {
-      toast.error("O tempo de espera esgotou. Tente gerar o arquivo novamente.");
+      toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
     }
     limparProcessamento();
   }, [limparProcessamento]);
@@ -204,10 +203,10 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
         setRes(data);
         setFormDataValues(Object.fromEntries(fd));
       } else {
-        toast.error(data.message);
+        toast("error", data.message);
       }
     } catch (err) {
-      toast.error("Erro ao processar ficheiros.");
+      toast("info", "Erro ao processar ficheiros.");
     } finally {
       setIsLoading(false);
     }
@@ -224,10 +223,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     if (!(fd.get("file_jd") as File)?.size || !(fd.get("file_core") as File)?.size) {
-      console.log('falta arquivo');
-      toastSuccess("Selecione os dois !");
-      
-      toast.error("Selecione os dois arquivos CSV.");
+      toast("success", "Selecione os dois arquivos CSV.");
       return;
     }
     setIsLoading(true);
@@ -242,7 +238,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
       if (data.success) setTaskId(data.taskId);
       else throw new Error(data.message);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao iniciar geração.");
+      toast("error",err.message || "Erro ao iniciar geração.");
       setIsLoading(false);
     }
   };
@@ -339,7 +335,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
   const copiarParaJira = () => {
     if (jiraData) {
       navigator.clipboard.writeText(jiraData.textoClipboard);
-      toast.success("Texto copiado para o JIRA!");
+      toast("success","Texto copiado para o JIRA!");
     }
   };
 
