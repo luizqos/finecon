@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import { processarConciliacao, gerarExcel, baixarArquivo, healthCheck } from '../controllers/conciliacao.controller';
 import { progress } from '../utils/updateStatus';
+import { csvFilter } from '@/libs/filterCsv';
 
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
@@ -14,7 +15,13 @@ const storage = multer.diskStorage({
 
 
 const router = Router();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage, 
+  fileFilter: csvFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  }
+});
 
 router.post('/processar', upload.fields([
   { name: 'file_jd', maxCount: 1 },
