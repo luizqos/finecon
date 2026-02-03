@@ -13,27 +13,11 @@ import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
 import { toast } from "@/libs/toast";
+import { ProcessamentoRes } from "@/interfaces/processamento";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
 
-// --- Interfaces ---
-interface Pendencia {
-  e2e: string;
-  tipo: "C" | "D";
-  valor: number;
-  falta: "CORE" | "JD";
-}
-
-interface ProcessamentoRes {
-  success: boolean;
-  message?: string;
-  pendencias: Pendencia[];
-  jd_sheet: {
-    C: { qtd: number; val: number };
-    D: { qtd: number; val: number };
-  };
-}
 
 // --- SUBCOMPONENTE DE INPUT ---
 function InputOriginal({ label, name, placeholder = "0" }: { label: string; name: string; placeholder?: string }) {
