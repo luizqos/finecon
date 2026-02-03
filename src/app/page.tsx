@@ -187,7 +187,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
         setRes(data);
         setFormDataValues(Object.fromEntries(fd));
       } else {
-        toast("error", data.message);
+        toast("error", "Verifique os dados informados.");
       }
     } catch (err) {
       toast("info", "Erro ao processar ficheiros.");
