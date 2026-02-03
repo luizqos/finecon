@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import pino from 'pino';
+const logger = pino();
 
 // Configuração: Apagar arquivos com mais de 1 hora (em milissegundos)
 const MAX_AGE_MS = 60 * 60 * 1000; 
@@ -33,11 +35,10 @@ async function cleanOldFiles() {
         console.log(`🗑️ Removido: ${file} (Idade: ${Math.round(age / 60000)} min)`);
       }
     } catch (err) {
-      console.error(`❌ Erro ao processar arquivo ${file}:`, err);
+      logger.error(`❌ Erro ao processar arquivo ${file}: ${err}`);
     }
   });
-
-  console.log(`✅ Limpeza concluída. ${deletedCount} arquivos removidos.`);
+  logger.info(`✅ Limpeza concluída. ${deletedCount} arquivos removidos.`);
 }
 
 // Executa se chamado diretamente

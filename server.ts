@@ -3,6 +3,8 @@ import cors from 'cors';
 import conciliacaoRoutes from './src/api/routes/conciliacao.routes';
 import { cleanOldFiles } from '@/scripts/cleanup';
 import fs from 'fs';
+import pino from 'pino';
+const logger = pino();
 
 const app = express();
 app.use(cors({
@@ -22,7 +24,7 @@ app.use('/api/conciliacao', conciliacaoRoutes);
 const PORT = process.env.API_PORT || 9001;
 const HOST = '0.0.0.0';
 const server = app.listen(Number(PORT), HOST, () => {
-  console.log(`🚀 BFF Finecon rodando em http://${HOST}:${PORT}`);
+  logger.info({ host: HOST, port: PORT }, 'Servidor iniciado');
 });
 
 server.timeout = 600000; 

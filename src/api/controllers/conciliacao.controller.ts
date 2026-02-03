@@ -9,6 +9,8 @@ import { executarEmLotes } from '../utils/runInBatch';
 import { atualizarStatus, progress } from '../utils/updateStatus';
 import { IDataset } from '../interfaces/IDataset';
 import { ENV } from '@/config/env';
+import pino from 'pino';
+const logger = pino();
 
 export const healthCheck = async (req: Request, res: Response) => {
   return res.status(200).json({
@@ -170,7 +172,7 @@ export const gerarExcel = async (req: Request, res: Response) => {
       if (files.file_jd) fs.unlinkSync(files.file_jd[0].path);
       if (files.file_core) fs.unlinkSync(files.file_core[0].path);
     } catch (error) {
-      console.error(`Erro na Task ${taskId}:`, error);
+      logger.error(`Erro na Task ${taskId}: ${error}`);
       progress[taskId].etapa = "Erro no processamento";
     }
   })();
