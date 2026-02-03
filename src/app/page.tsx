@@ -12,32 +12,16 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
+import { fmtCur, fmtNum} from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
+import { InputOriginal } from "@/components/InputOriginal";
+import { ProcessingLoader } from "@/components/ProcessingLoader";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
 
-
-// --- SUBCOMPONENTE DE INPUT ---
-function InputOriginal({ label, name, placeholder = "0" }: { label: string; name: string; placeholder?: string }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-[11px] font-bold text-gray-500 uppercase tracking-tight block">
-        {label}
-      </label>
-      <input
-        name={name}
-        className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-        placeholder={placeholder}
-      />
-    </div>
-  );
-}
-
-
 export default function ConciliacaoPage() {
-  // --- ESTADOS ---
   const [isLoading, setIsLoading] = useState(false);
   const [loaderTitle, setLoaderTitle] = useState("Processando");
   const [progress, setProgress] = useState(0);
@@ -58,14 +42,11 @@ export default function ConciliacaoPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- EFEITO INICIAL ---
   useEffect(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     setDataRef(yesterday.toISOString().split("T")[0]);
   }, []);
-
-  // --- AÇÕES MEMORIZADAS ---
 
   const interromperProcessamento = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -86,7 +67,7 @@ export default function ConciliacaoPage() {
     }, 3000);
   }, []);
 
-const handleFinalizarDownload = useCallback(async (id: string) => {
+  const handleFinalizarDownload = useCallback(async (id: string) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setLoaderTitle("Preparando transferência...");
@@ -96,7 +77,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     const maxTentativas = 15;
     let sucesso = false;
 
-    // 1. Aguarda o arquivo estar pronto no servidor
     for (let i = 0; i < maxTentativas; i++) {
       try {
         const check = await fetch(downloadUrl, { method: "HEAD" });
@@ -114,19 +94,17 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
       try {
         const response = await fetch(downloadUrl);
         if (!response.ok) throw new Error("Erro ao baixar o arquivo");
-        
+
         const blob = await response.blob();
-        
+
         const url = window.URL.createObjectURL(blob);
-        
+
         const a = document.createElement("a");
         a.href = url;
         const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
         a.download = nomeFormatado;
         document.body.appendChild(a);
         a.click();
-        
-        // 5. Limpeza: remove o link e libera a memória da URL
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
 
@@ -146,8 +124,7 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     }
     limparProcessamento();
   }, [limparProcessamento]);
-  
-  // --- MONITORAMENTO DE PROGRESSO ---
+
   useEffect(() => {
     if (isLoading && taskId) {
       intervalRef.current = setInterval(async () => {
@@ -171,7 +148,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isLoading, taskId, handleFinalizarDownload, interromperProcessamento]);
 
-  // --- MANIPULADORES ---
   const handleProcessar = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -222,21 +198,14 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
       if (data.success) setTaskId(data.taskId);
       else throw new Error(data.message);
     } catch (err: any) {
-      toast("error",err.message || "Erro ao iniciar geração.");
+      toast("error", err.message || "Erro ao iniciar geração.");
       setIsLoading(false);
     }
   };
 
-  // --- UTILITÁRIOS ---
-  const fmtCur = (v: number) =>
-    v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const fmtNum = (v: number) => v.toLocaleString("pt-BR");
-
   const parseMoeda = (v: string) =>
     parseFloat(v.replace(/\./g, "").replace(",", ".")) || 0;
 
-  // --- CÁLCULOS ---
   const metrics = useMemo(() => {
     if (!formDataValues) return null;
     const jd_qc = (parseInt(formDataValues.m_jd_qtd_c) || 0) + (parseInt(formDataValues.m_jd_qtd_dev_c) || 0);
@@ -281,11 +250,10 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
       { titulo: "E2E faltante no Core Débito", lista: res.pendencias.filter((p) => p.falta === "CORE" && p.tipo === "D") },
     ];
 
-    // Lógica de verificação de divergência
-    const temDivergencia = 
-      Math.abs(metrics.diff.qc) > 0 || 
-      Math.abs(metrics.diff.vc) > 0.01 || 
-      Math.abs(metrics.diff.qd) > 0 || 
+    const temDivergencia =
+      Math.abs(metrics.diff.qc) > 0 ||
+      Math.abs(metrics.diff.vc) > 0.01 ||
+      Math.abs(metrics.diff.qd) > 0 ||
       Math.abs(metrics.diff.vd) > 0.01;
 
     let textoClipboard = `*Conciliação referente ao dia ${dataSel}*\n\n`;
@@ -319,26 +287,17 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
   const copiarParaJira = () => {
     if (jiraData) {
       navigator.clipboard.writeText(jiraData.textoClipboard);
-      toast("success","Texto copiado para o JIRA!");
+      toast("success", "Texto copiado para o JIRA!");
     }
   };
 
   return (
     <main className="min-h-screen bg-gray-50 py-10 px-4 md:px-8 text-gray-800">
-      {/* LOADER PERSISTENTE */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <h4 className="font-bold text-lg mb-2">{loaderTitle}</h4>
-            <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden mb-2">
-              <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
-            </div>
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{progress}% concluído</p>
-          </div>
-        </div>
-      )}
-
+      <ProcessingLoader
+        isLoading={isLoading}
+        title={loaderTitle}
+        progress={progress}
+      />
       <div className="max-w-6xl mx-auto">
         <h1 className="flex items-center justify-center gap-3 text-4xl font-extrabold text-[#212529] mb-10 tracking-tight">
           <span className="text-4xl">📊</span> Conciliação JD vs Core
@@ -458,8 +417,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
                   </tbody>
                 </table>
               </div>
-
-              {/* FILTROS E LISTA */}
               <div className="flex flex-wrap gap-4 mb-6">
                 <input placeholder="Filtrar ID..." className="flex-1 min-w-[200px] border border-gray-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" onChange={(e) => setFilterE2E(e.target.value)} />
                 <select className="border border-gray-300 rounded px-3 py-2 text-sm bg-white" onChange={(e) => setFilterTipo(e.target.value)}>
@@ -508,8 +465,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
           </div>
         )}
       </div>
-
-      {/* MODAL RESUMO JIRA */}
       {showJiraModal && jiraData && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -517,11 +472,9 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
               <h3 className="font-bold flex items-center gap-2">🎫 Resumo JIRA</h3>
               <button onClick={() => setShowJiraModal(false)} className="hover:text-gray-400 text-2xl">&times;</button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto space-y-6">
               <h5 className="text-[#0d6efd] font-bold text-lg border-b pb-2">Conciliação referente ao dia {jiraData.dataSel}</h5>
-
-              {/* BLOCO DE DIVERGÊNCIAS / SUCESSO */}
               {!jiraData.temDivergencia ? (
                 <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-lg flex items-center gap-3">
                   <CheckCircle2 className="text-green-600" size={24} />
@@ -550,8 +503,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
                   )}
                 </div>
               )}
-
-              {/* TABELAS RESUMO */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {["CORE", "JD"].map((label) => (
                   <div key={label} className="border rounded-lg overflow-hidden">
@@ -582,8 +533,6 @@ const handleFinalizarDownload = useCallback(async (id: string) => {
                   </div>
                 ))}
               </div>
-
-              {/* LISTAGEM DE E2E NO MODAL */}
               {jiraData.grupos.map((g, idx) => g.lista.length > 0 && (
                 <div key={idx} className="space-y-1">
                   <strong className="text-[10px] text-gray-500 uppercase tracking-widest">{g.titulo} ({g.lista.length})</strong>
