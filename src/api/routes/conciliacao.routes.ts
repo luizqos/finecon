@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
-import { processarConciliacao, gerarExcel, baixarArquivo, healthCheck } from '../controllers/conciliacao.controller';
+import { processarConciliacao, gerarExcel, baixarArquivo, healthCheck, verificarArquivo } from '../controllers/conciliacao.controller';
 import { progress } from '../utils/updateStatus';
 import { csvFilter } from '@/libs/filterCsv';
 
@@ -40,6 +40,7 @@ router.post('/gerar-excel', upload.fields([
 
 router.get('/baixar-arquivo/:taskId', baixarArquivo);
 
+router.get('/verificar-arquivo/:taskId', verificarArquivo);
 
 router.get('/health', (req, res) => healthCheck(req, res));
 

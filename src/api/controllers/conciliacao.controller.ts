@@ -48,6 +48,27 @@ export const baixarArquivo = async (req: Request, res: Response) => {
   });
 };
 
+export const verificarArquivo = async (req: Request, res: Response) => {
+  const taskId  = req.params.taskId as string;
+  const status = progress[taskId];
+
+
+  const filePath = (status as any).downloadPath;
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).json({ 
+      exists: false, 
+      message: "Arquivo não encontrado no diretório de saída." 
+    });
+  }
+
+  return res.status(200).json({ 
+    exists: true, 
+    message: "Arquivo pronto para download.",
+    path: filePath
+  });
+};
+
 export const gerarExcel = async (req: Request, res: Response) => {
   const taskId = req.body.taskId || `task_${Date.now()}`;
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };

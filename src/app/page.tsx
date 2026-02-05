@@ -12,7 +12,7 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
-import { fmtCur, fmtNum } from "@/libs/utils";
+import { fmtCur, fmtNum} from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
 import { InputOriginal } from "@/components/InputOriginal";
@@ -67,19 +67,19 @@ export default function ConciliacaoPage() {
     }, 3000);
   }, []);
 
-  const handleFinalizarDownload2 = useCallback(async (id: string) => {
+  const handleFinalizarDownload = useCallback(async (id: string) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
+    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo/${id}`;
     const maxTentativas = 15;
     let sucesso = false;
 
     for (let i = 0; i < maxTentativas; i++) {
       try {
-        const check = await fetch(downloadUrl, { method: "HEAD" });
+        const check = await fetch(checkFile, { method: "HEAD" });
         if (check.ok) {
           sucesso = true;
           break;
@@ -92,7 +92,7 @@ export default function ConciliacaoPage() {
 
     if (sucesso) {
       try {
-        const response = await fetch(downloadUrl);
+        const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
         if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
         const blob = await response.blob();
@@ -125,83 +125,19 @@ export default function ConciliacaoPage() {
     limparProcessamento();
   }, [limparProcessamento]);
 
-  const handleFinalizarDownload = useCallback(async (id: string) => {
-    setLoaderTitle("Preparando transferência...");
-    setProgress(100);
-
-    const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
-    const maxTentativas = 15;
-    let sucesso = false;
-
-    for (let i = 0; i < maxTentativas; i++) {
-      try {
-       const check = await fetch(downloadUrl, { method: "HEAD" });
-        if (check.ok) {
-          sucesso = true;
-          break;
-        }
-      } catch (err) {
-        console.warn("Tentativa de conexão falhou, tentando novamente...");
-      }
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    if (sucesso) {
-      try {
-        const response = await fetch(downloadUrl);
-        if (!response.ok) throw new Error("Erro ao baixar o arquivo");
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
-        a.download = nomeFormatado;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ["#22c55e", "#3b82f6", "#f59e0b"],
-        });
-
-        setLoaderTitle("Download concluído!");
-      } catch (err) {
-        console.error(err);
-        toast("error", "Erro ao processar o arquivo baixado.");
-      }
-    } else {
-      toast("error", "O tempo de espera esgotou ou o servidor falhou ao gerar o arquivo.");
-    }
-    limparProcessamento();
-  }, [limparProcessamento]);
-
   useEffect(() => {
     if (isLoading && taskId) {
-      const currentTaskId = taskId;
-
       intervalRef.current = setInterval(async () => {
         try {
-          const r = await fetch(`${API_URL}/api/conciliacao/progress/${currentTaskId}`);
-          if (!r.ok) {
-            throw new Error("Tarefa não encontrada ou erro no servidor");
-          }
+          const r = await fetch(`${API_URL}/api/conciliacao/progress/${taskId}`);
+          if (!r.ok) throw new Error("Falha ao consultar progresso");
 
           const d = await r.json();
           setProgress(d.porcentagem || 0);
           setLoaderTitle(d.etapa || "Processando...");
 
           if (d.porcentagem === 100) {
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-              intervalRef.current = null;
-            }
-            setTaskId(null);
-            handleFinalizarDownload(currentTaskId);
+            handleFinalizarDownload(taskId);
           }
         } catch (e) {
           console.error("Erro no polling:", e);
