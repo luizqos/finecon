@@ -73,33 +73,39 @@ export default function ConciliacaoPage() {
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
-
-    // Se você mantiver 15 tentativas com 10 segundos, o tempo total de espera será de 150 segundos (2,5 min).
+    const checkFileUrl = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
     const maxTentativas = 15;
     let sucesso = false;
 
-    for (let i = 0; i < maxTentativas; i++) {
+    for (let i = 1; i <= maxTentativas; i++) {
       try {
-        // Faz a chamada HEAD
-        const check = await fetch(checkFile, { method: "HEAD" });
+        console.log(`Tentativa ${i}: Verificando arquivo...`);
 
-        if (check.ok) {
+        // Realiza a chamada e espera a resposta
+        const response = await fetch(checkFileUrl, { method: "HEAD" });
+
+        if (response.ok) {
           sucesso = true;
-          break;
+          break; // Sai do loop IMEDIATAMENTE se encontrar o arquivo
         }
+
+        // Se não retornou OK, logamos para debug
+        console.warn(`Arquivo ainda não pronto na tentativa ${i}.`);
+
       } catch (err) {
-        console.warn(`Tentativa ${i + 1}: Ficheiro ainda não disponível...`);
+        console.error("Erro na comunicação com o servidor:", err);
       }
-      console.log('enviou request', new Date());
-      // Aguarda exatamente 10 segundos antes de ir para a próxima iteração do loop
-      // Isso garante que o intervalo de 10s comece APÓS a resposta da última requisição
-      await new Promise(resolve => setTimeout(resolve, 10000));
+
+      // Só espera se não for a última tentativa e se não tivemos sucesso
+      if (i < maxTentativas) {
+        setLoaderTitle(`Aguardando processamento (Tentativa ${i}/${maxTentativas})...`);
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Pausa de 10 segundos
+      }
     }
 
+    // --- Lógica de Download após o Loop ---
     if (sucesso) {
       try {
-        // Lógica de download (permanece a mesma)
         const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
         if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
@@ -128,9 +134,8 @@ export default function ConciliacaoPage() {
       }
     } else {
       toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
+      limparProcessamento();
     }
-
-    limparProcessamento();
   }, [limparProcessamento]);
 
   useEffect(() => {
