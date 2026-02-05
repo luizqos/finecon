@@ -73,7 +73,7 @@ export default function ConciliacaoPage() {
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo/${id}`;
+    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo/?taskId=${id}`;
     const maxTentativas = 15;
     let sucesso = false;
 

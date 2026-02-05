@@ -49,9 +49,14 @@ export const baixarArquivo = async (req: Request, res: Response) => {
 };
 
 export const verificarArquivo = async (req: Request, res: Response) => {
-  const taskId  = req.params.taskId as string;
+  const taskId  = req.query.taskId as string;
+  if (!taskId) {
+    return res.status(400).json({ 
+      exists: false, 
+      message: "Parâmetro obrigatório não informado." 
+    });
+  }
   const status = progress[taskId];
-
 
   const filePath = (status as any).downloadPath;
 
