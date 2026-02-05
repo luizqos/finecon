@@ -12,7 +12,7 @@ import {
 import confetti from "canvas-confetti";
 import { ENV } from "@/config/env";
 import { formatarData } from "@/api/utils/formatters";
-import { fmtCur, fmtNum} from "@/libs/utils";
+import { fmtCur, fmtNum } from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
 import { InputOriginal } from "@/components/InputOriginal";
@@ -73,32 +73,38 @@ export default function ConciliacaoPage() {
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo/?taskId=${id}`;
+    const checkFile = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
+
+    // Se você mantiver 15 tentativas com 10 segundos, o tempo total de espera será de 150 segundos (2,5 min).
     const maxTentativas = 15;
     let sucesso = false;
 
     for (let i = 0; i < maxTentativas; i++) {
       try {
+        // Faz a chamada HEAD
         const check = await fetch(checkFile, { method: "HEAD" });
+
         if (check.ok) {
           sucesso = true;
           break;
         }
       } catch (err) {
-        console.warn("Ficheiro ainda não disponível...");
+        console.warn(`Tentativa ${i + 1}: Ficheiro ainda não disponível...`);
       }
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('enviou request', new Date());
+      // Aguarda exatamente 10 segundos antes de ir para a próxima iteração do loop
+      // Isso garante que o intervalo de 10s comece APÓS a resposta da última requisição
+      await new Promise(resolve => setTimeout(resolve, 10000));
     }
 
     if (sucesso) {
       try {
+        // Lógica de download (permanece a mesma)
         const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
         if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
         const blob = await response.blob();
-
         const url = window.URL.createObjectURL(blob);
-
         const a = document.createElement("a");
         a.href = url;
         const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
@@ -118,10 +124,12 @@ export default function ConciliacaoPage() {
         setLoaderTitle("Download concluído!");
       } catch (err) {
         console.error(err);
+        toast("error", "Erro ao processar o download do arquivo.");
       }
     } else {
       toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
     }
+
     limparProcessamento();
   }, [limparProcessamento]);
 
