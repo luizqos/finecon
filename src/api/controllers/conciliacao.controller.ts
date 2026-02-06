@@ -49,7 +49,9 @@ export const baixarArquivo = async (req: Request, res: Response) => {
 };
 
 export const verificarArquivo = async (req: Request, res: Response) => {
+  logger.info('🚀 verificarArquivo...');
   const taskId  = req.query.taskId as string;
+  logger.info(`taskId... ${taskId}`);
   if (!taskId) {
     return res.status(400).json({ 
       exists: false, 
@@ -59,7 +61,7 @@ export const verificarArquivo = async (req: Request, res: Response) => {
   const status = progress[taskId];
 
   const filePath = (status as any).downloadPath;
-  console.log('filePath', filePath);
+  logger.info(`filePath... ${filePath}`);
 
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).json({ 

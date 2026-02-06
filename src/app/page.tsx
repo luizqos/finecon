@@ -87,9 +87,9 @@ export default function ConciliacaoPage() {
 
     try {
       for (let i = 1; i <= maxTentativas; i++) {
-        console.log(`Tentativa ${i}: Verificando arquivo...`); // Agora deve logar apenas 1 vez por tentativa
+        console.log(`Tentativa ${i}: Verificando arquivo...`);
 
-        const response = await fetch(checkFileUrl, { method: "HEAD" });
+        const response = await fetch(checkFileUrl, { method: "GET" });
 
         if (response.ok) {
           sucesso = true;
