@@ -42,6 +42,8 @@ export default function ConciliacaoPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isVerificandoRef = useRef(false);
+
   useEffect(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -68,6 +70,12 @@ export default function ConciliacaoPage() {
   }, []);
 
   const handleFinalizarDownload = useCallback(async (id: string) => {
+    // 1. SE JÁ ESTIVER RODANDO, BLOQUEIA NOVAS CHAMADAS
+    if (isVerificandoRef.current) return;
+
+    // 2. ATIVA A TRAVA
+    isVerificandoRef.current = true;
+
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setLoaderTitle("Preparando transferência...");
@@ -77,67 +85,63 @@ export default function ConciliacaoPage() {
     const maxTentativas = 15;
     let sucesso = false;
 
-    for (let i = 1; i <= maxTentativas; i++) {
-      try {
-        console.log(`Tentativa ${i}: Verificando arquivo...`);
+    try {
+      for (let i = 1; i <= maxTentativas; i++) {
+        console.log(`Tentativa ${i}: Verificando arquivo...`); // Agora deve logar apenas 1 vez por tentativa
 
-        // Realiza a chamada e espera a resposta
         const response = await fetch(checkFileUrl, { method: "HEAD" });
 
         if (response.ok) {
           sucesso = true;
-          break; // Sai do loop IMEDIATAMENTE se encontrar o arquivo
+          break;
         }
 
-        // Se não retornou OK, logamos para debug
-        console.warn(`Arquivo ainda não pronto na tentativa ${i}.`);
-
-      } catch (err) {
-        console.error("Erro na comunicação com o servidor:", err);
+        if (i < maxTentativas) {
+          setLoaderTitle(`Aguardando processamento (${i}/${maxTentativas})...`);
+          // Espera 10 segundos antes da PRÓXIMA iteração
+          await new Promise(resolve => setTimeout(resolve, 10000));
+        }
       }
 
-      // Só espera se não for a última tentativa e se não tivemos sucesso
-      if (i < maxTentativas) {
-        setLoaderTitle(`Aguardando processamento (Tentativa ${i}/${maxTentativas})...`);
-        await new Promise(resolve => setTimeout(resolve, 10000)); // Pausa de 10 segundos
+      if (sucesso) {
+        try {
+          const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
+          if (!response.ok) throw new Error("Erro ao baixar o arquivo");
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
+          a.download = nomeFormatado;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ["#22c55e", "#3b82f6", "#f59e0b"],
+          });
+
+          setLoaderTitle("Download concluído!");
+        } catch (err) {
+          console.error(err);
+          toast("error", "Erro ao processar o download do arquivo.");
+        }
+      } else {
+        toast("error", "O tempo de espera esgotou.");
       }
-    }
 
-    // --- Lógica de Download após o Loop ---
-    if (sucesso) {
-      try {
-        const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
-        if (!response.ok) throw new Error("Erro ao baixar o arquivo");
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
-        a.download = nomeFormatado;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ["#22c55e", "#3b82f6", "#f59e0b"],
-        });
-
-        setLoaderTitle("Download concluído!");
-      } catch (err) {
-        console.error(err);
-        toast("error", "Erro ao processar o download do arquivo.");
-      }
-    } else {
-      toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
+    } catch (err) {
+      console.error("Erro no processo:", err);
+    } finally {
+      isVerificandoRef.current = false;
       limparProcessamento();
     }
   }, [limparProcessamento]);
-
   useEffect(() => {
     if (isLoading && taskId) {
       intervalRef.current = setInterval(async () => {
