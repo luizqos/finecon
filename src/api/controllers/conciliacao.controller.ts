@@ -59,6 +59,7 @@ export const verificarArquivo = async (req: Request, res: Response) => {
   const status = progress[taskId];
 
   const filePath = (status as any).downloadPath;
+  console.log('filePath', filePath);
 
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).json({ 
