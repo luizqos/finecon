@@ -41,7 +41,6 @@ export default function ConciliacaoPage() {
 
   const formRef = useRef<HTMLFormElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const isVerificandoRef = useRef(false);
 
   useEffect(() => {
@@ -70,18 +69,23 @@ export default function ConciliacaoPage() {
   }, []);
 
   const handleFinalizarDownload = useCallback(async (id: string) => {
-    // 1. SE JÁ ESTIVER RODANDO, BLOQUEIA NOVAS CHAMADAS
+    // Proteção: Se já estiver verificando, não inicia outra
     if (isVerificandoRef.current) return;
-
-    // 2. ATIVA A TRAVA
     isVerificandoRef.current = true;
 
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    // Para o intervalo de progresso imediatamente para evitar novas chamadas
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
 
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    const checkFileUrl = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
+    // URL de verificação conforme solicitado anteriormente (Query Params)
+    const checkUrl = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
+    const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
+
     const maxTentativas = 15;
     let sucesso = false;
 
@@ -89,59 +93,61 @@ export default function ConciliacaoPage() {
       for (let i = 1; i <= maxTentativas; i++) {
         console.log(`Tentativa ${i}: Verificando arquivo...`);
 
-        const response = await fetch(checkFileUrl, { method: "GET" });
+        try {
+          // Faz a verificação leve (HEAD)
+          const check = await fetch(checkUrl, { method: "HEAD" });
 
-        if (response.ok) {
-          sucesso = true;
-          break;
+          if (check.ok) {
+            sucesso = true;
+            break;
+          }
+        } catch (err) {
+          console.warn(`Tentativa ${i}: Servidor ainda processando...`);
         }
 
+        // Se não foi a última tentativa, espera 10 segundos
         if (i < maxTentativas) {
-          setLoaderTitle(`Aguardando processamento (${i}/${maxTentativas})...`);
-          // Espera 10 segundos antes da PRÓXIMA iteração
+          setLoaderTitle(`Aguardando arquivo (${i}/${maxTentativas})...`);
           await new Promise(resolve => setTimeout(resolve, 10000));
         }
       }
 
       if (sucesso) {
-        try {
-          const response = await fetch(`${API_URL}/api/conciliacao/baixar-arquivo/${id}`);
-          if (!response.ok) throw new Error("Erro ao baixar o arquivo");
+        // Realiza o GET do arquivo apenas após confirmar que ele existe
+        const response = await fetch(downloadUrl);
+        if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          const nomeFormatado = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
-          a.download = nomeFormatado;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${API_FILENAME_OUTPUT} - ${formatarData()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
 
-          confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ["#22c55e", "#3b82f6", "#f59e0b"],
-          });
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ["#22c55e", "#3b82f6", "#f59e0b"],
+        });
 
-          setLoaderTitle("Download concluído!");
-        } catch (err) {
-          console.error(err);
-          toast("error", "Erro ao processar o download do arquivo.");
-        }
+        setLoaderTitle("Download concluído!");
       } else {
-        toast("error", "O tempo de espera esgotou.");
+        toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
       }
-
-    } catch (err) {
-      console.error("Erro no processo:", err);
+    } catch (error) {
+      console.error("Erro no processo de download:", error);
+      toast("error", "Ocorreu um erro ao baixar o arquivo.");
     } finally {
+      // Libera a trava e limpa o estado
       isVerificandoRef.current = false;
       limparProcessamento();
     }
   }, [limparProcessamento]);
+
   useEffect(() => {
     if (isLoading && taskId) {
       intervalRef.current = setInterval(async () => {
@@ -150,11 +156,13 @@ export default function ConciliacaoPage() {
           if (!r.ok) throw new Error("Falha ao consultar progresso");
 
           const d = await r.json();
-          setProgress(d.porcentagem || 0);
-          setLoaderTitle(d.etapa || "Processando...");
 
-          if (d.porcentagem === 100) {
+          // Se já chegou em 100, chama a função e o intervalo será limpo lá dentro
+          if (d.porcentagem >= 100) {
             handleFinalizarDownload(taskId);
+          } else {
+            setProgress(d.porcentagem || 0);
+            setLoaderTitle(d.etapa || "Processando...");
           }
         } catch (e) {
           console.error("Erro no polling:", e);
