@@ -40,7 +40,7 @@ router.post('/gerar-excel', upload.fields([
 
 router.get('/baixar-arquivo/:taskId', baixarArquivo);
 
-router.get('/verificar-arquivo/:taskId', verificarArquivo);
+router.get('/verificar-arquivo', verificarArquivo);
 
 router.get('/health', (req, res) => healthCheck(req, res));
 
