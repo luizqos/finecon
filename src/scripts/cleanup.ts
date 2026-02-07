@@ -10,19 +10,22 @@ const MAX_AGE_MS = MAX_AGE_MINUTES * 60 * 1000;
 const CHECK_INTERVAL_MINUTES = Number(process.env.CLEANUP_INTERVAL_MINUTES) || 30;
 const CHECK_INTERVAL_MS = CHECK_INTERVAL_MINUTES * 60 * 1000;
 
-const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+const UPLOADS_DIR = process.env.CLEANUP_UPLOADS_DIR 
+  ? path.resolve(process.env.CLEANUP_UPLOADS_DIR)
+  : path.resolve(process.cwd(), 'uploads');
 
 async function cleanOldFiles() {
-  logger.info(`🧹 [${new Date().toLocaleString()}] Iniciando limpeza. Alvo: arquivos com +${MAX_AGE_MINUTES}min`);
+  const nowStr = new Date().toLocaleString();
+  logger.info(`🧹 [${nowStr}] Iniciando limpeza. Alvo: arquivos com +${MAX_AGE_MINUTES}min`);
 
   if (!fs.existsSync(UPLOADS_DIR)) {
-    logger.warn('⚠️ Pasta de uploads não encontrada. Pulando...');
+    logger.warn(`⚠️ Pasta não encontrada: ${UPLOADS_DIR}. Pulando...`);
     return;
   }
 
   try {
     const files = fs.readdirSync(UPLOADS_DIR);
-    const now = Date.now();
+    const nowMs = Date.now();
     let deletedCount = 0;
 
     files.forEach(file => {
@@ -32,32 +35,31 @@ async function cleanOldFiles() {
       
       try {
         const stats = fs.statSync(filePath);
-        const age = now - stats.mtimeMs;
+        const age = nowMs - stats.mtimeMs;
 
         if (age > MAX_AGE_MS) {
           fs.unlinkSync(filePath);
           deletedCount++;
           logger.info(`🗑️ Removido: ${file} (Idade: ${Math.round(age / 60000)} min)`);
         }
-      } catch (err) {
-        logger.error(`❌ Erro ao processar arquivo ${file}: ${err}`);
+      } catch (err: any) {
+        logger.error(`❌ Erro ao processar arquivo ${file}: ${err.message}`);
       }
     });
 
     logger.info(`✅ Limpeza concluída. ${deletedCount} arquivos removidos.`);
-  } catch (err) {
-    logger.error(`❌ Erro ao ler diretório: ${err}`);
+  } catch (err: any) {
+    logger.error(`❌ Erro ao ler diretório: ${err.message}`);
   }
 }
 
-if (import.meta.url.endsWith(process.argv[1]) || require.main === module) {
+if (require.main === module) {
   cleanOldFiles();
-
   setInterval(() => {
     cleanOldFiles();
   }, CHECK_INTERVAL_MS);
 
-  logger.info(`🚀 Monitor de limpeza ativo! Verificação a cada ${CHECK_INTERVAL_MINUTES} minutos.`);
+  logger.info(`🚀 Monitor de limpeza ativo em loop (a cada ${CHECK_INTERVAL_MINUTES} min)`);
 }
 
 export { cleanOldFiles };
