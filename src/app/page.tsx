@@ -156,7 +156,7 @@ export default function ConciliacaoPage() {
         } catch (e) {
           interromperProcessamento();
         }
-      }, 2000);
+      }, 10000);
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isLoading, taskId, handleFinalizarDownload, interromperProcessamento]);
