@@ -69,11 +69,9 @@ export default function ConciliacaoPage() {
   }, []);
 
   const handleFinalizarDownload = useCallback(async (id: string) => {
-    // Proteção: Se já estiver verificando, não inicia outra
     if (isVerificandoRef.current) return;
     isVerificandoRef.current = true;
 
-    // Para o intervalo de progresso imediatamente para evitar novas chamadas
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -82,7 +80,6 @@ export default function ConciliacaoPage() {
     setLoaderTitle("Preparando transferência...");
     setProgress(100);
 
-    // URL de verificação conforme solicitado anteriormente (Query Params)
     const checkUrl = `${API_URL}/api/conciliacao/verificar-arquivo?taskId=${id}`;
     const downloadUrl = `${API_URL}/api/conciliacao/baixar-arquivo/${id}`;
 
@@ -91,10 +88,7 @@ export default function ConciliacaoPage() {
 
     try {
       for (let i = 1; i <= maxTentativas; i++) {
-        console.log(`Tentativa ${i}: Verificando arquivo...`);
-
         try {
-          // Faz a verificação leve (HEAD)
           const check = await fetch(checkUrl, { method: "HEAD" });
 
           if (check.ok) {
@@ -105,7 +99,6 @@ export default function ConciliacaoPage() {
           console.warn(`Tentativa ${i}: Servidor ainda processando...`);
         }
 
-        // Se não foi a última tentativa, espera 10 segundos
         if (i < maxTentativas) {
           setLoaderTitle(`Aguardando arquivo (${i}/${maxTentativas})...`);
           await new Promise(resolve => setTimeout(resolve, 10000));
@@ -113,7 +106,6 @@ export default function ConciliacaoPage() {
       }
 
       if (sucesso) {
-        // Realiza o GET do arquivo apenas após confirmar que ele existe
         const response = await fetch(downloadUrl);
         if (!response.ok) throw new Error("Erro ao baixar o arquivo");
 
@@ -139,10 +131,8 @@ export default function ConciliacaoPage() {
         toast("error", "O tempo de espera esgotou. Tente gerar o arquivo novamente.");
       }
     } catch (error) {
-      console.error("Erro no processo de download:", error);
       toast("error", "Ocorreu um erro ao baixar o arquivo.");
     } finally {
-      // Libera a trava e limpa o estado
       isVerificandoRef.current = false;
       limparProcessamento();
     }
@@ -157,7 +147,6 @@ export default function ConciliacaoPage() {
 
           const d = await r.json();
 
-          // Se já chegou em 100, chama a função e o intervalo será limpo lá dentro
           if (d.porcentagem >= 100) {
             handleFinalizarDownload(taskId);
           } else {
@@ -165,7 +154,6 @@ export default function ConciliacaoPage() {
             setLoaderTitle(d.etapa || "Processando...");
           }
         } catch (e) {
-          console.error("Erro no polling:", e);
           interromperProcessamento();
         }
       }, 2000);
