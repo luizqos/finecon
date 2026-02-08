@@ -19,7 +19,7 @@ export function ConciliacaoResultados({ dataRef, metrics, res, filteredAudit, on
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Resultado ({dataRef.split("-").reverse().join("/")})</h2>
-          <button onClick={onOpenJira} className="bg-[#212529] text-white px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2">
+          <button onClick={onOpenJira} className="bg-[#212529] text-white px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 hover:bg-black transition-colors">
             <span className="text-[10px]">🎫</span> JIRA
           </button>
         </div>
@@ -59,7 +59,7 @@ export function ConciliacaoResultados({ dataRef, metrics, res, filteredAudit, on
 
         {/* Filtros e Lista de Pendências */}
         <div className="flex flex-wrap gap-4 mb-6">
-          <input placeholder="Filtrar ID..." className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm" onChange={(e) => filters.setE2E(e.target.value)} />
+          <input placeholder="Filtrar ID..." className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" onChange={(e) => filters.setE2E(e.target.value)} />
           <select className="border border-gray-300 rounded px-3 py-2 text-sm bg-white" onChange={(e) => filters.setTipo(e.target.value)}>
             <option value="">Tipos</option>
             <option value="C">Crédito</option>
@@ -73,7 +73,7 @@ export function ConciliacaoResultados({ dataRef, metrics, res, filteredAudit, on
         </div>
 
         <div className="overflow-x-auto border border-gray-200 rounded">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="bg-[#212529] text-white text-xs uppercase">
                 <th className="p-3 text-left">E2E ID</th>
@@ -84,10 +84,10 @@ export function ConciliacaoResultados({ dataRef, metrics, res, filteredAudit, on
             </thead>
             <tbody>
               {filteredAudit.map((p, i) => (
-                <tr key={i} className="border-b border-gray-100">
-                  <td className="p-3 font-bold text-[#d63384]">{p.e2e}</td>
+                <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="p-3 font-bold text-[#d63384] break-all">{p.e2e}</td>
                   <td className="p-3 text-center">
-                    <span className="bg-[#0dcaf0] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                    <span className={`text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${p.tipo === "C" ? "bg-green-500" : "bg-red-500"}`}>
                       {p.tipo === "C" ? "CRÉDITO" : "DÉBITO"}
                     </span>
                   </td>
