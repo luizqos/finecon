@@ -6,11 +6,21 @@ import { formatarData } from "@/api/utils/formatters";
 import { fmtCur, fmtNum } from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
+import * as pdfjsLib from "pdfjs-dist";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function useConciliacao() {
+    const [jdForm, setJdForm] = useState({
+        m_jd_qtd_c: "",
+        m_jd_qtd_dev_c: "",
+        m_jd_val_c: "",
+        m_jd_qtd_d: "",
+        m_jd_qtd_dev_d: "",
+        m_jd_val_d: "",
+    });
     const [isLoading, setIsLoading] = useState(false);
     const [loaderTitle, setLoaderTitle] = useState("Processando");
     const [progress, setProgress] = useState(0);
@@ -144,6 +154,59 @@ export function useConciliacao() {
         }
     };
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setJdForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleImportPDF = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = "";
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                fullText += content.items.map((item: any) => item.str).join(" ");
+            }
+
+            // Regex baseadas na estrutura do seu PDF (Relatório Sintético JDPI)
+            // Extração de quantidades (Efetivados)
+            const qtdMatch = fullText.match(/DÉBITOS.*?(\d+)\s+\d+\s+\d+\s+(\d+)/);
+            const devMatch = fullText.match(/DEVOLUÇÃO DÉBITOS.*?(\d+)\s+\d+\s+\d+\s+(\d+)/);
+            // Extração de valores (R$)
+            const valMatch = fullText.match(/R\$\s?([\d.,]+)\s+R\$\s?[\d.,]+\s+R\$\s?[\d.,]+\s+R\$\s?([\d.,]+)/);
+
+            if (qtdMatch && valMatch && devMatch) {
+                setJdForm({
+                    m_jd_qtd_d: qtdMatch[1],     // 1852 
+                    m_jd_qtd_c: qtdMatch[2],     // 14165 
+                    m_jd_qtd_dev_d: devMatch[1], // 23 [cite: 10]
+                    m_jd_qtd_dev_c: devMatch[2], // 3 [cite: 10]
+                    m_jd_val_d: valMatch[1],     // 1.478.083,89 
+                    m_jd_val_c: valMatch[2],     // 6.643.182,07 
+                });
+
+                // Tentar capturar a data do movimento [cite: 3]
+                const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
+                if (dataMatch) {
+                    const [d, m, y] = dataMatch[1].split("/");
+                    // setDataRef(`${y}-${m}-${d}`); // Se você tiver o estado dataRef disponível
+                }
+
+                toast("success", "Dados extraídos do PDF com sucesso!");
+            } else {
+                throw new Error("Padrão de dados não encontrado no PDF.");
+            }
+        } catch (error) {
+            toast("error", "Erro ao ler PDF. Verifique se é o relatório sintético correto.");
+        }
+    }, []);
+
     const handleDownloadExcel = async (formElement: HTMLFormElement | null) => {
         if (!formElement) return;
         const fd = new FormData(formElement);
@@ -234,6 +297,9 @@ export function useConciliacao() {
     }, [res, metrics, dataRef]);
 
     return {
+        jdForm,
+        handleInputChange,
+        handleImportPDF,
         states: { isLoading, loaderTitle, progress, isSwapped, dataRef, fileJdName, fileCoreName, res, metrics, filteredAudit, showJiraModal, filterE2E, filterTipo, filterOri, jiraData },
         actions: {
             setIsSwapped, setDataRef, setFileJdName, setFileCoreName, handleProcessar, handleDownloadExcel, setShowJiraModal, setFilterE2E, setFilterTipo, setFilterOri, handleFileChange: (e: any, type: string) => {
