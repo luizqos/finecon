@@ -180,13 +180,17 @@ export function useConciliacao() {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      setIsLoading(true);
+      setLoaderTitle("Lendo PDF...");
+      setProgress(10);
+
       try {
         const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
         const workerUrl = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
         const arrayBuffer = await file.arrayBuffer();
+        setProgress(30);
 
         const loadingTask = pdfjs.getDocument({
           data: arrayBuffer,
@@ -196,11 +200,15 @@ export function useConciliacao() {
 
         const pdf = await loadingTask.promise;
         let fullText = "";
+        setProgress(50);
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
           fullText += content.items.map((item: any) => item.str).join(" ");
+
+          const partialProgress = 50 + (i / pdf.numPages) * 40;
+          setProgress(Math.round(partialProgress));
         }
 
         const qtdMatch = fullText.match(/DÉBITOS.*?(\d+)\s+0\s+\d+\s+(\d+)/);
@@ -227,16 +235,23 @@ export function useConciliacao() {
             setDataRef(`${y}-${m}-${d}`);
           }
 
+          setProgress(100);
+          setLoaderTitle("Dados extraídos!");
           toast("success", "Dados JD preenchidos via PDF!");
         } else {
-          toast("error", "Relatório não reconhecido ou campos ausentes.");
+          toast("error", "Não foi possível mapear os campos.");
         }
       } catch (error: any) {
         console.error("Erro PDF:", error);
         toast("error", `Falha ao ler PDF: ${error.message}`);
+      } finally {
+        setTimeout(() => {
+          setIsLoading(false);
+          setProgress(0);
+        }, 800);
       }
     },
-    []
+    [setIsLoading, setLoaderTitle, setProgress, setDataRef, setJdForm]
   );
 
   const handleDownloadExcel = async (formElement: HTMLFormElement | null) => {
