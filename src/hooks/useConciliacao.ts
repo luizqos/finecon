@@ -7,7 +7,6 @@ import { formatarData } from "@/api/utils/formatters";
 import { fmtCur, fmtNum } from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
-import { Console } from "console";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
@@ -212,7 +211,6 @@ export function useConciliacao() {
           setProgress(Math.round(partialProgress));
         }
 
-        console.log('FullText', fullText);
         const qtdMatch = fullText.match(/DÉBITOS.*?(\d+)\s+0\s+\d+\s+(\d+)/);
         const devMatch = fullText.match(
           /DEVOLUÇÃO DÉBITOS.*?(\d+)\s+0\s+\d+\s+(\d+)/
@@ -220,7 +218,6 @@ export function useConciliacao() {
         const valMatch = fullText.match(
           /R\$\s?([\d.,]+)\s+R\$\s?0,00\s+R\$\s?[\d.,]+\s+R\$\s?([\d.,]+)/
         );
-        console.log('qtdMatch', qtdMatch, 'devMatch', devMatch, 'valMatch', valMatch);
 
         if (qtdMatch && valMatch && devMatch) {
           setJdForm({
