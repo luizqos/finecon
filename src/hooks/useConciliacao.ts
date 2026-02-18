@@ -7,6 +7,7 @@ import { formatarData } from "@/api/utils/formatters";
 import { fmtCur, fmtNum } from "@/libs/utils";
 import { toast } from "@/libs/toast";
 import { ProcessamentoRes } from "@/interfaces/processamento";
+import { Console } from "console";
 
 const API_URL = ENV.NEXT_PUBLIC_API_URL;
 const API_FILENAME_OUTPUT = ENV.NEXT_PUBLIC_API_FILENAME_OUTPUT;
@@ -175,7 +176,7 @@ export function useConciliacao() {
     setJdForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleImportPDF = useCallback(
+  const handleImportPDFOld = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -211,6 +212,7 @@ export function useConciliacao() {
           setProgress(Math.round(partialProgress));
         }
 
+        console.log('FullText', fullText);
         const qtdMatch = fullText.match(/DÉBITOS.*?(\d+)\s+0\s+\d+\s+(\d+)/);
         const devMatch = fullText.match(
           /DEVOLUÇÃO DÉBITOS.*?(\d+)\s+0\s+\d+\s+(\d+)/
@@ -218,6 +220,7 @@ export function useConciliacao() {
         const valMatch = fullText.match(
           /R\$\s?([\d.,]+)\s+R\$\s?0,00\s+R\$\s?[\d.,]+\s+R\$\s?([\d.,]+)/
         );
+        console.log('qtdMatch', qtdMatch, 'devMatch', devMatch, 'valMatch', valMatch);
 
         if (qtdMatch && valMatch && devMatch) {
           setJdForm({
@@ -252,6 +255,100 @@ export function useConciliacao() {
       }
     },
     [setIsLoading, setLoaderTitle, setProgress, setDataRef, setJdForm]
+  );
+
+  const handleImportPDF = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsLoading(true);
+      setLoaderTitle("Extraindo dados do PDF...");
+      setProgress(10);
+
+      try {
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const workerUrl = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
+        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({
+          data: arrayBuffer,
+          useWorkerFetch: true,
+          isEvalSupported: false,
+        });
+
+        const pdf = await loadingTask.promise;
+        let fullText = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          // Unir com espaço simples e remover quebras de linha extras para normalizar o texto
+          fullText += content.items
+            .map((item: any) => item.str)
+            .join(" ")
+            .replace(/\s+/g, " ");
+          setProgress(Math.round(10 + (i / pdf.numPages) * 80));
+        }
+
+        /**
+         * NOVA LÓGICA DE EXTRAÇÃO:
+         * Em vez de procurar "0", buscamos a sequência de números que compõe a tabela.
+         * O relatório JDPI possui 6 colunas na tabela de totais (3 para Débito, 3 para Crédito).
+         */
+
+        // 1. Extrair Quantidades (Procura por DÉBITOS e pega os próximos 6 números inteiros)
+        const qtdRegex =
+          /DÉBITOS.*?(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/;
+        const qtdMatch = fullText.match(qtdRegex);
+
+        // 2. Extrair Devoluções (Procura por DEVOLUÇÃO DÉBITOS e pega os próximos 6 números) [cite: 10]
+        const devRegex =
+          /DEVOLUÇÃO DÉBITOS.*?(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/;
+        const devMatch = fullText.match(devRegex);
+
+        // 3. Extrair Valores Monetários (Procura por R$ e pega a sequência de 6 valores)
+        // Captura o padrão R$ 1.234,56 ou R$ 1234.56
+        const valRegex = /(?:R\$\s?([\d.,]+)\s?){6}/;
+        const valMatch = fullText.match(valRegex);
+
+        // Se o valMatch acima falhar, tentamos uma busca mais específica após a palavra DEVOLUÇÃO CRÉDITOS
+        const valTableMatch = fullText.match(
+          /DEVOLUÇÃO CRÉDITOS.*?R\$\s?([\d.,]+).*?R\$\s?[\d.,]+.*?R\$\s?[\d.,]+.*?R\$\s?([\d.,]+)/
+        );
+
+        if (qtdMatch && devMatch) {
+          setJdForm({
+            m_jd_qtd_d: qtdMatch[1], // 1º valor: Efetivados Débito (ex: 1852) [cite: 9]
+            m_jd_qtd_c: qtdMatch[4], // 4º valor: Efetivados Crédito (ex: 14165) [cite: 9]
+            m_jd_qtd_dev_d: devMatch[1], // 1º valor: Devolução Débito (ex: 23) [cite: 10]
+            m_jd_qtd_dev_c: devMatch[4], // 4º valor: Devolução Crédito (ex: 3) [cite: 10]
+            // Valores monetários:
+            m_jd_val_d: valTableMatch ? valTableMatch[1] : "", // R$ 1.478.083,89
+            m_jd_val_c: valTableMatch ? valTableMatch[2] : "", // R$ 6.643.182,07
+          });
+
+          // Sincronizar Data [cite: 3, 5]
+          const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
+          if (dataMatch) {
+            const [d, m, y] = dataMatch[1].split("/");
+            setDataRef(`${y}-${m}-${d}`);
+          }
+
+          toast("success", "Dados extraídos com precisão!");
+        } else {
+          toast("error", "Não foi possível processar a estrutura deste PDF.");
+        }
+      } catch (error: any) {
+        console.error("Erro na extração:", error);
+        toast("error", "Erro ao ler o arquivo PDF.");
+      } finally {
+        setIsLoading(false);
+        setProgress(0);
+      }
+    },
+    [setDataRef]
   );
 
   const handleDownloadExcel = async (formElement: HTMLFormElement | null) => {
